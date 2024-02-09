@@ -1,30 +1,30 @@
-from abc import abstractmethod
+import inspect
 import json
+from abc import abstractmethod
+from collections import namedtuple
+from typing import *
 
-from transformers.file_utils import ModelOutput
-from transformers.data.processors.utils import InputFeatures
-
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from yacs.config import CfgNode
+from transformers.data.processors.utils import InputFeatures
+from transformers.file_utils import ModelOutput
 from transformers.tokenization_utils import PreTrainedTokenizer
-
-import numpy as np
-from collections import namedtuple
-
-import inspect
-from typing import *
+from yacs.config import CfgNode
 
 _VALID_TYPES = {tuple, list, str, int, float, bool, type(None)}
 
 
 def convert_cfg_to_dict(cfg_node, key_list=[]):
-    """ Convert a config node to dictionary """
+    """Convert a config node to dictionary"""
     if not isinstance(cfg_node, CfgNode):
         if type(cfg_node) not in _VALID_TYPES:
-            print("Key {} with value {} is not a valid type; valid types: {}".format(
-                ".".join(key_list), type(cfg_node), _VALID_TYPES), )
+            print(
+                "Key {} with value {} is not a valid type; valid types: {}".format(
+                    ".".join(key_list), type(cfg_node), _VALID_TYPES
+                ),
+            )
         return cfg_node
     else:
         cfg_dict = dict(cfg_node)
@@ -36,57 +36,64 @@ def convert_cfg_to_dict(cfg_node, key_list=[]):
 def signature(f):
     r"""Get the function f 's input arguments. A useful gadget
     when some function slot might be instantiated into multiple functions.
-    
+
     Args:
         f (:obj:`function`) : the function to get the input arguments.
-    
+
     Returns:
         namedtuple : of args, default, varargs, keywords, respectively.s
 
     """
     sig = inspect.signature(f)
     args = [
-        p.name for p in sig.parameters.values()
+        p.name
+        for p in sig.parameters.values()
         if p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
     ]
     varargs = [
-        p.name for p in sig.parameters.values()
+        p.name
+        for p in sig.parameters.values()
         if p.kind == inspect.Parameter.VAR_POSITIONAL
     ]
     varargs = varargs[0] if varargs else None
     keywords = [
-        p.name for p in sig.parameters.values()
+        p.name
+        for p in sig.parameters.values()
         if p.kind == inspect.Parameter.VAR_KEYWORD
     ]
     keywords = keywords[0] if keywords else None
     defaults = [
-        p.default for p in sig.parameters.values()
+        p.default
+        for p in sig.parameters.values()
         if p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
         and p.default is not p.empty
     ] or None
-    argspec = namedtuple('Signature', ['args', 'defaults',
-                                        'varargs', 'keywords'])
-    return argspec(args, defaults, varargs, keywords) 
+    argspec = namedtuple("Signature", ["args", "defaults", "varargs", "keywords"])
+    return argspec(args, defaults, varargs, keywords)
 
 
 class Verbalizer(nn.Module):
-    r'''
+    r"""
     Base class for all the verbalizers.
 
     Args:
         tokenizer (:obj:`PreTrainedTokenizer`): A tokenizer to appoint the vocabulary and the tokenization strategy.
         classes (:obj:`Sequence[str]`): A sequence of classes that need to be projected.
-    '''
-    def __init__(self,
-                 tokenizer: Optional[PreTrainedTokenizer] = None,
-                 classes: Optional[Sequence[str]] = None,
-                 num_classes: Optional[int] = None,
-                ):
+    """
+
+    def __init__(
+        self,
+        tokenizer: Optional[PreTrainedTokenizer] = None,
+        classes: Optional[Sequence[str]] = None,
+        num_classes: Optional[int] = None,
+    ):
         super().__init__()
         self.tokenizer = tokenizer
         self.classes = classes
         if classes is not None and num_classes is not None:
-            assert len(classes) == num_classes, "len(classes) != num_classes, Check you config."
+            assert (
+                len(classes) == num_classes
+            ), "len(classes) != num_classes, Check you config."
             self.num_classes = num_classes
         elif num_classes is not None:
             self.num_classes = num_classes
@@ -98,12 +105,14 @@ class Verbalizer(nn.Module):
         self._in_on_label_words_set = False
 
     @property
-    def label_words(self,):
-        r'''
+    def label_words(
+        self,
+    ):
+        r"""
         Label words means the words in the vocabulary projected by the labels.
         E.g. if we want to establish a projection in sentiment classification: positive :math:`\rightarrow` {`wonderful`, `good`},
         in this case, `wonderful` and `good` are label words.
-        '''
+        """
         if not hasattr(self, "_label_words"):
             raise RuntimeError("label words haven't been set.")
         return self._label_words
@@ -116,46 +125,60 @@ class Verbalizer(nn.Module):
         if not self._in_on_label_words_set:
             self.safe_on_label_words_set()
 
-    def _match_label_words_to_label_ids(self, label_words): # TODO newly add function after docs written # TODO rename this function
+    def _match_label_words_to_label_ids(
+        self, label_words
+    ):  # TODO newly add function after docs written # TODO rename this function
         """
         sort label words dict of verbalizer to match the label order of the classes
         """
         if isinstance(label_words, dict):
             if self.classes is None:
-                raise ValueError("""
+                raise ValueError(
+                    """
                 classes attribute of the Verbalizer should be set since your given label words is a dict.
                 Since we will match the label word with respect to class A, to A's index in classes
-                """)
+                """
+                )
             if set(label_words.keys()) != set(self.classes):
-                raise ValueError("name of classes in verbalizer are different from those of dataset")
-            label_words = [ # sort the dict to match dataset
-                label_words[c]
-                for c in self.classes
-            ] # length: label_size of the whole task
+                raise ValueError(
+                    "name of classes in verbalizer are different from those of dataset"
+                )
+            label_words = [  # sort the dict to match dataset
+                label_words[c] for c in self.classes
+            ]  # length: label_size of the whole task
         elif isinstance(label_words, list) or isinstance(label_words, tuple):
             pass
         else:
             raise ValueError("Verbalizer label words must be list, tuple or dict")
         return label_words
 
-    def safe_on_label_words_set(self,):
+    def safe_on_label_words_set(
+        self,
+    ):
         self._in_on_label_words_set = True
         self.on_label_words_set()
         self._in_on_label_words_set = False
 
-    def on_label_words_set(self,):
-        r"""A hook to do something when textual label words were set.
-        """
+    def on_label_words_set(
+        self,
+    ):
+        r"""A hook to do something when textual label words were set."""
         pass
 
     @property
-    def vocab(self,) -> Dict:
-        if not hasattr(self, '_vocab'):
-            self._vocab = self.tokenizer.convert_ids_to_tokens(np.arange(self.vocab_size).tolist())
+    def vocab(
+        self,
+    ) -> Dict:
+        if not hasattr(self, "_vocab"):
+            self._vocab = self.tokenizer.convert_ids_to_tokens(
+                np.arange(self.vocab_size).tolist()
+            )
         return self._vocab
 
     @property
-    def vocab_size(self,) -> int:
+    def vocab_size(
+        self,
+    ) -> int:
         return self.tokenizer.vocab_size
 
     @abstractmethod
@@ -184,10 +207,9 @@ class Verbalizer(nn.Module):
             logits = logits.detach()
         self._calibrate_logits = logits
 
-    def process_outputs(self,
-                       outputs: torch.Tensor,
-                       batch: Union[Dict, InputFeatures],
-                       **kwargs):
+    def process_outputs(
+        self, outputs: torch.Tensor, batch: Union[Dict, InputFeatures], **kwargs
+    ):
         r"""By default, the verbalizer will process the logits of the PLM's
         output.
 
@@ -199,7 +221,7 @@ class Verbalizer(nn.Module):
         return self.process_logits(outputs, batch=batch, **kwargs)
 
     def gather_outputs(self, outputs: ModelOutput):
-        r""" retrieve useful output for the verbalizer from the whole model output
+        r"""retrieve useful output for the verbalizer from the whole model output
         By default, it will only retrieve the logits
 
         Args:
@@ -213,7 +235,7 @@ class Verbalizer(nn.Module):
 
     @staticmethod
     def aggregate(label_words_logits: torch.Tensor) -> torch.Tensor:
-        r""" To aggregate logits on multiple label words into the label's logits
+        r"""To aggregate logits on multiple label words into the label's logits
         Basic aggregator: mean of each label words' logits to a label's logits
         Can be re-implemented in advanced verbaliezer.
 
@@ -223,11 +245,10 @@ class Verbalizer(nn.Module):
         Return:
             :obj:`torch.Tensor`: The final logits calculated by the label words.
         """
-        if label_words_logits.dim()>2:
+        if label_words_logits.dim() > 2:
             return label_words_logits.mean(dim=-1)
         else:
             return label_words_logits
-
 
     def normalize(self, logits: torch.Tensor) -> torch.Tensor:
         r"""
@@ -243,9 +264,7 @@ class Verbalizer(nn.Module):
         return F.softmax(logits.reshape(batch_size, -1), dim=-1).reshape(*logits.shape)
 
     @abstractmethod
-    def project(self,
-                logits: torch.Tensor,
-                **kwargs) -> torch.Tensor:
+    def project(self, logits: torch.Tensor, **kwargs) -> torch.Tensor:
         r"""This method receives input logits of shape ``[batch_size, vocab_size]``, and use the
         parameters of this verbalizer to project the logits over entire vocab into the
         logits of labels words.
@@ -273,18 +292,20 @@ class Verbalizer(nn.Module):
         if self.multi_token_handler == "first":
             label_words_logits = label_words_logits.select(dim=-1, index=0)
         elif self.multi_token_handler == "max":
-            label_words_logits = label_words_logits - 1000*(1-mask.unsqueeze(0))
+            label_words_logits = label_words_logits - 1000 * (1 - mask.unsqueeze(0))
             label_words_logits = label_words_logits.max(dim=-1).values
         elif self.multi_token_handler == "mean":
-            label_words_logits = (label_words_logits*mask.unsqueeze(0)).sum(dim=-1)/(mask.unsqueeze(0).sum(dim=-1)+1e-15)
+            label_words_logits = (label_words_logits * mask.unsqueeze(0)).sum(
+                dim=-1
+            ) / (mask.unsqueeze(0).sum(dim=-1) + 1e-15)
         else:
-            raise ValueError("multi_token_handler {} not configured".format(self.multi_token_handler))
+            raise ValueError(
+                "multi_token_handler {} not configured".format(self.multi_token_handler)
+            )
         return label_words_logits
 
     @classmethod
-    def from_config(cls,
-                    config: CfgNode,
-                    **kwargs):
+    def from_config(cls, config: CfgNode, **kwargs):
         r"""load a verbalizer from verbalizer's configuration node.
 
         Args:
@@ -295,24 +316,30 @@ class Verbalizer(nn.Module):
         """
 
         init_args = signature(cls.__init__).args
-        _init_dict = {**convert_cfg_to_dict(config), **kwargs} if config is not None else kwargs
+        _init_dict = (
+            {**convert_cfg_to_dict(config), **kwargs} if config is not None else kwargs
+        )
         init_dict = {key: _init_dict[key] for key in _init_dict if key in init_args}
         verbalizer = cls(**init_dict)
         if hasattr(verbalizer, "from_file"):
             if not hasattr(config, "file_path"):
                 pass
             else:
-                if (not hasattr(config, "label_words") or config.label_words is None) and config.file_path is not None:
+                if (
+                    not hasattr(config, "label_words") or config.label_words is None
+                ) and config.file_path is not None:
                     if config.choice is None:
                         config.choice = 0
                     verbalizer.from_file(config.file_path, config.choice)
-                elif (hasattr(config, "label_words") and config.label_words is not None) and config.file_path is not None:
-                    raise RuntimeError("The text can't be both set from `text` and `file_path`.")
+                elif (
+                    hasattr(config, "label_words") and config.label_words is not None
+                ) and config.file_path is not None:
+                    raise RuntimeError(
+                        "The text can't be both set from `text` and `file_path`."
+                    )
         return verbalizer
 
-    def from_file(self,
-                  path: str,
-                  choice: Optional[int] = 0 ):
+    def from_file(self, path: str, choice: Optional[int] = 0):
         r"""Load the predefined label words from verbalizer file.
         Currently support three types of file format:
         1. a .jsonl or .json file, in which is a single verbalizer
@@ -333,27 +360,32 @@ class Verbalizer(nn.Module):
             Template : `self` object
         """
         if path.endswith(".txt") or path.endswith(".csv"):
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 lines = f.readlines()
                 label_words_all = []
                 label_words_single_group = []
                 for line in lines:
                     line = line.strip().strip(" ")
                     if line == "":
-                        if len(label_words_single_group)>0:
+                        if len(label_words_single_group) > 0:
                             label_words_all.append(label_words_single_group)
                         label_words_single_group = []
                     else:
                         label_words_single_group.append(line)
-                if len(label_words_single_group) > 0: # if no empty line in the last
+                if len(label_words_single_group) > 0:  # if no empty line in the last
                     label_words_all.append(label_words_single_group)
                 if choice >= len(label_words_all):
-                    raise RuntimeError("choice {} exceed the number of verbalizers {}"
-                                .format(choice, len(label_words_all)))
+                    raise RuntimeError(
+                        "choice {} exceed the number of verbalizers {}".format(
+                            choice, len(label_words_all)
+                        )
+                    )
 
                 label_words = label_words_all[choice]
-                label_words = [label_words_per_label.strip().split(",") \
-                            for label_words_per_label in label_words]
+                label_words = [
+                    label_words_per_label.strip().split(",")
+                    for label_words_per_label in label_words
+                ]
 
         elif path.endswith(".jsonl") or path.endswith(".json"):
             with open(path, "r") as f:
@@ -361,20 +393,27 @@ class Verbalizer(nn.Module):
                 # if it is a file containing multiple verbalizers
                 if isinstance(label_words_all, list):
                     if choice >= len(label_words_all):
-                        raise RuntimeError("choice {} exceed the number of verbalizers {}"
-                                .format(choice, len(label_words_all)))
+                        raise RuntimeError(
+                            "choice {} exceed the number of verbalizers {}".format(
+                                choice, len(label_words_all)
+                            )
+                        )
                     label_words = label_words_all[choice]
                 elif isinstance(label_words_all, dict):
                     label_words = label_words_all
-                    if choice>0:
-                        print("Choice of verbalizer is 1, but the file  \
-                        only contains one verbalizer.")
+                    if choice > 0:
+                        print(
+                            "Choice of verbalizer is 1, but the file  \
+                        only contains one verbalizer."
+                        )
 
         self.label_words = label_words
         if self.num_classes is not None:
             num_classes = len(self.label_words)
-            assert num_classes==self.num_classes, 'number of classes in the verbalizer file\
-                                            does not match the predefined num_classes.'
+            assert (
+                num_classes == self.num_classes
+            ), "number of classes in the verbalizer file\
+                                            does not match the predefined num_classes."
         return self
 
 
@@ -390,15 +429,17 @@ class ManualVerbalizer(Verbalizer):
         multi_token_handler (:obj:`str`, optional): The handling strategy for multiple tokens produced by the tokenizer.
         post_log_softmax (:obj:`bool`, optional): Whether to apply log softmax post processing on label_logits. Default to True.
     """
-    def __init__(self,
-                 tokenizer: PreTrainedTokenizer,
-                 classes: Optional[List] = None,
-                 num_classes: Optional[Sequence[str]] = None,
-                 label_words: Optional[Union[Sequence[str], Mapping[str, str]]] = None,
-                 prefix: Optional[str] = " ",
-                 multi_token_handler: Optional[str] = "first",
-                 post_log_softmax: Optional[bool] = True,
-                ):
+
+    def __init__(
+        self,
+        tokenizer: PreTrainedTokenizer,
+        classes: Optional[List] = None,
+        num_classes: Optional[Sequence[str]] = None,
+        label_words: Optional[Union[Sequence[str], Mapping[str, str]]] = None,
+        prefix: Optional[str] = " ",
+        multi_token_handler: Optional[str] = "first",
+        post_log_softmax: Optional[bool] = True,
+    ):
         super().__init__(tokenizer=tokenizer, num_classes=num_classes, classes=classes)
         self.prefix = prefix
         self.multi_token_handler = multi_token_handler
@@ -409,8 +450,8 @@ class ManualVerbalizer(Verbalizer):
         super().on_label_words_set()
         self.label_words = self.add_prefix(self.label_words, self.prefix)
 
-         # TODO should Verbalizer base class has label_words property and setter?
-         # it don't have label_words init argument or label words from_file option at all
+        # TODO should Verbalizer base class has label_words property and setter?
+        # it don't have label_words init argument or label words from_file option at all
 
         self.generate_parameters()
 
@@ -428,7 +469,9 @@ class ManualVerbalizer(Verbalizer):
         """
         new_label_words = []
         if isinstance(label_words[0], str):
-            label_words = [[w] for w in label_words]  #wrapped it to a list of list of label words.
+            label_words = [
+                [w] for w in label_words
+            ]  # wrapped it to a list of list of label words.
 
         for label_words_per_label in label_words:
             new_label_words_per_label = []
@@ -452,26 +495,37 @@ class ManualVerbalizer(Verbalizer):
                 ids_per_label.append(ids)
             all_ids.append(ids_per_label)
 
-        max_len  = max([max([len(ids) for ids in ids_per_label]) for ids_per_label in all_ids])
+        max_len = max(
+            [max([len(ids) for ids in ids_per_label]) for ids_per_label in all_ids]
+        )
         max_num_label_words = max([len(ids_per_label) for ids_per_label in all_ids])
         words_ids_mask = torch.zeros(max_num_label_words, max_len)
-        words_ids_mask = [[[1]*len(ids) + [0]*(max_len-len(ids)) for ids in ids_per_label]
-                             + [[0]*max_len]*(max_num_label_words-len(ids_per_label))
-                             for ids_per_label in all_ids]
-        words_ids = [[ids + [0]*(max_len-len(ids)) for ids in ids_per_label]
-                             + [[0]*max_len]*(max_num_label_words-len(ids_per_label))
-                             for ids_per_label in all_ids]
+        words_ids_mask = [
+            [[1] * len(ids) + [0] * (max_len - len(ids)) for ids in ids_per_label]
+            + [[0] * max_len] * (max_num_label_words - len(ids_per_label))
+            for ids_per_label in all_ids
+        ]
+        words_ids = [
+            [ids + [0] * (max_len - len(ids)) for ids in ids_per_label]
+            + [[0] * max_len] * (max_num_label_words - len(ids_per_label))
+            for ids_per_label in all_ids
+        ]
 
         words_ids_tensor = torch.tensor(words_ids)
         words_ids_mask = torch.tensor(words_ids_mask)
         self.label_words_ids = nn.Parameter(words_ids_tensor, requires_grad=False)
-        self.words_ids_mask = nn.Parameter(words_ids_mask, requires_grad=False) # A 3-d mask
-        self.label_words_mask = nn.Parameter(torch.clamp(words_ids_mask.sum(dim=-1), max=1), requires_grad=False)
+        self.words_ids_mask = nn.Parameter(
+            words_ids_mask, requires_grad=False
+        )  # A 3-d mask
+        self.label_words_mask = nn.Parameter(
+            torch.clamp(words_ids_mask.sum(dim=-1), max=1), requires_grad=False
+        )
 
-    def project(self,
-                logits: torch.Tensor,
-                **kwargs,
-                ) -> torch.Tensor:
+    def project(
+        self,
+        logits: torch.Tensor,
+        **kwargs,
+    ) -> torch.Tensor:
         r"""
         Project the labels, the return value is the normalized (sum to 1) probs of label words.
 
@@ -483,8 +537,10 @@ class ManualVerbalizer(Verbalizer):
         """
 
         label_words_logits = logits[:, self.label_words_ids]
-        label_words_logits = self.handle_multi_token(label_words_logits, self.words_ids_mask)
-        label_words_logits -= 10000*(1-self.label_words_mask)
+        label_words_logits = self.handle_multi_token(
+            label_words_logits, self.words_ids_mask
+        )
+        label_words_logits -= 10000 * (1 - self.label_words_mask)
         return label_words_logits
 
     def process_logits(self, logits: torch.Tensor, **kwargs):
@@ -507,19 +563,23 @@ class ManualVerbalizer(Verbalizer):
             (:obj:`torch.Tensor`): The final processed logits over the labels (classes).
         """
         # project
-        label_words_logits = self.project(logits, **kwargs)  #Output: (batch_size, num_classes) or  (batch_size, num_classes, num_label_words_per_label)
-
+        label_words_logits = self.project(
+            logits, **kwargs
+        )  # Output: (batch_size, num_classes) or  (batch_size, num_classes, num_label_words_per_label)
 
         if self.post_log_softmax:
             # normalize
             label_words_probs = self.normalize(label_words_logits)
 
             # calibrate
-            if  hasattr(self, "_calibrate_logits") and self._calibrate_logits is not None:
+            if (
+                hasattr(self, "_calibrate_logits")
+                and self._calibrate_logits is not None
+            ):
                 label_words_probs = self.calibrate(label_words_probs=label_words_probs)
 
             # convert to logits
-            label_words_logits = torch.log(label_words_probs+1e-15)
+            label_words_logits = torch.log(label_words_probs + 1e-15)
 
         # aggregate
         label_logits = self.aggregate(label_words_logits)
@@ -539,7 +599,6 @@ class ManualVerbalizer(Verbalizer):
         batch_size = logits.shape[0]
         return F.softmax(logits.reshape(batch_size, -1), dim=-1).reshape(*logits.shape)
 
-
     def aggregate(self, label_words_logits: torch.Tensor) -> torch.Tensor:
         r"""Use weight to aggregate the logits of label words.
 
@@ -549,7 +608,9 @@ class ManualVerbalizer(Verbalizer):
         Returns:
             :obj:`torch.Tensor`: The aggregated logits from the label words.
         """
-        label_words_logits = (label_words_logits * self.label_words_mask).sum(-1)/self.label_words_mask.sum(-1)
+        label_words_logits = (label_words_logits * self.label_words_mask).sum(
+            -1
+        ) / self.label_words_mask.sum(-1)
         return label_words_logits
 
     def calibrate(self, label_words_probs: torch.Tensor, **kwargs) -> torch.Tensor:
@@ -562,13 +623,21 @@ class ManualVerbalizer(Verbalizer):
             :obj:`torch.Tensor`: The calibrated probability of label words.
         """
         shape = label_words_probs.shape
-        assert self._calibrate_logits.dim() ==  1, "self._calibrate_logits are not 1-d tensor"
-        calibrate_label_words_probs = self.normalize(self.project(self._calibrate_logits.unsqueeze(0), **kwargs))
-        assert calibrate_label_words_probs.shape[1:] == label_words_probs.shape[1:] \
-             and calibrate_label_words_probs.shape[0]==1, "shape not match"
-        label_words_probs /= (calibrate_label_words_probs+1e-15)
+        assert (
+            self._calibrate_logits.dim() == 1
+        ), "self._calibrate_logits are not 1-d tensor"
+        calibrate_label_words_probs = self.normalize(
+            self.project(self._calibrate_logits.unsqueeze(0), **kwargs)
+        )
+        assert (
+            calibrate_label_words_probs.shape[1:] == label_words_probs.shape[1:]
+            and calibrate_label_words_probs.shape[0] == 1
+        ), "shape not match"
+        label_words_probs /= calibrate_label_words_probs + 1e-15
         # normalize # TODO Test the performance
-        norm = label_words_probs.reshape(shape[0], -1).sum(dim=-1,keepdim=True) # TODO Test the performance of detaching()
+        norm = label_words_probs.reshape(shape[0], -1).sum(
+            dim=-1, keepdim=True
+        )  # TODO Test the performance of detaching()
         label_words_probs = label_words_probs.reshape(shape[0], -1) / norm
         label_words_probs = label_words_probs.reshape(*shape)
         return label_words_probs

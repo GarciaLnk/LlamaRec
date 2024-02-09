@@ -1,13 +1,6 @@
-import numpy as np
-import pandas as pd
-from tqdm import tqdm
-import urllib.request
-
-
-from pathlib import Path
-import zipfile
 import tarfile
-import sys
+import urllib.request
+import zipfile
 
 
 def download(url, savepath):
