@@ -12,9 +12,9 @@ PROJECT_NAME = "llmrec"
 def set_template(args):
     if args.dataset_code is None:
         print("******************** Dataset Selection ********************")
-        dataset_code = {"1": "ml-100k", "b": "beauty", "g": "games"}
+        dataset_code = {"1": "ml-100k", "b": "beauty", "g": "games", "m": "music"}
         args.dataset_code = dataset_code[
-            input("Input 1 for ml-100k, b for beauty and g for games: ")
+            input("Input 1 for ml-100k, b for beauty, g for games and m for music: ")
         ]
 
     if args.bert_max_len is None:
