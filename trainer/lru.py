@@ -42,8 +42,24 @@ class LRUTrainer(BaseTrainer):
 
     def generate_candidates(self, retrieved_data_path):
         self.model.eval()
-        val_probs, val_labels = [], []
-        test_probs, test_labels = [], []
+        val_probs, val_labels, val_users, val_candidates = [], [], [], []
+        test_probs, test_labels, test_users, test_candidates = [], [], [], []
+        non_test_users = []
+        val_metrics, test_metrics = {}, {}
+        retrieval_metrics, non_retrieval_metrics = {}, {}
+        for k in sorted(self.metric_ks, reverse=True):
+            val_metrics[f"Recall@{k}"] = 0
+            val_metrics[f"MRR@{k}"] = 0
+            val_metrics[f"NDCG@{k}"] = 0
+            test_metrics[f"Recall@{k}"] = 0
+            test_metrics[f"MRR@{k}"] = 0
+            test_metrics[f"NDCG@{k}"] = 0
+            retrieval_metrics[f"Recall@{k}"] = 0
+            retrieval_metrics[f"MRR@{k}"] = 0
+            retrieval_metrics[f"NDCG@{k}"] = 0
+            non_retrieval_metrics[f"Recall@{k}"] = 0
+            non_retrieval_metrics[f"MRR@{k}"] = 0
+            non_retrieval_metrics[f"NDCG@{k}"] = 0
         with torch.no_grad():
             print(
                 "*************** Generating Candidates for Validation Set ***************"
@@ -51,20 +67,38 @@ class LRUTrainer(BaseTrainer):
             tqdm_dataloader = tqdm(self.val_loader)
             for batch_idx, batch in enumerate(tqdm_dataloader):
                 batch = self.to_device(batch)
-                seqs, labels = batch
+                seqs, all_labels = batch
 
-                scores = self.model(seqs)[:, -1, :]
+                all_scores = self.model(seqs)[:, -1, :]
                 B, L = seqs.shape
-                for i in range(L):
-                    scores[torch.arange(scores.size(0)), seqs[:, i]] = -1e9
-                scores[:, 0] = -1e9  # padding
-                val_probs.extend(scores.tolist())
-                val_labels.extend(labels.view(-1).tolist())
-            val_metrics = absolute_recall_mrr_ndcg_for_ks(
-                torch.tensor(val_probs),
-                torch.tensor(val_labels).view(-1),
-                self.metric_ks,
-            )
+                for j in range(B):
+                    scores = all_scores[j, :].unsqueeze(0)
+                    labels = all_labels[j, :].unsqueeze(0)
+                    for i in range(L):
+                        scores[torch.arange(scores.size(0)), seqs[j, i]] = -1e9
+                    scores[:, 0] = -1e9  # padding
+                    metrics_batch = absolute_recall_mrr_ndcg_for_ks(
+                        scores, labels.view(-1), self.metric_ks
+                    )
+                    for k in sorted(self.metric_ks, reverse=True):
+                        val_metrics[f"Recall@{k}"] += metrics_batch[f"Recall@{k}"]
+                        val_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
+                        val_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
+                    top_scores, top_indices = torch.topk(
+                        scores, self.args.llm_negative_sample_size + 1
+                    )
+                    for u, (p, l, idx) in enumerate(
+                        zip(top_scores, labels, top_indices), start=1
+                    ):
+                        if l in idx:
+                            val_probs.append(p.tolist())
+                            val_labels.append(l.item())
+                            val_users.append(u)
+                            val_candidates.append(idx.tolist())
+            for k in sorted(self.metric_ks, reverse=True):
+                val_metrics[f"Recall@{k}"] /= self.args.num_users
+                val_metrics[f"MRR@{k}"] /= self.args.num_users
+                val_metrics[f"NDCG@{k}"] /= self.args.num_users
             print(val_metrics)
 
             print(
@@ -73,21 +107,63 @@ class LRUTrainer(BaseTrainer):
             tqdm_dataloader = tqdm(self.test_loader)
             for batch_idx, batch in enumerate(tqdm_dataloader):
                 batch = self.to_device(batch)
-                seqs, labels = batch
+                seqs, all_labels = batch
 
-                scores = self.model(seqs)[:, -1, :]
+                all_scores = self.model(seqs)[:, -1, :]
                 B, L = seqs.shape
-                for i in range(L):
-                    scores[torch.arange(scores.size(0)), seqs[:, i]] = -1e9
-                scores[:, 0] = -1e9  # padding
-                test_probs.extend(scores.tolist())
-                test_labels.extend(labels.view(-1).tolist())
-            test_metrics = absolute_recall_mrr_ndcg_for_ks(
-                torch.tensor(test_probs),
-                torch.tensor(test_labels).view(-1),
-                self.metric_ks,
-            )
+                for j in range(B):
+                    scores = all_scores[j, :].unsqueeze(0)
+                    labels = all_labels[j, :].unsqueeze(0)
+                    for i in range(L):
+                        scores[torch.arange(scores.size(0)), seqs[j, i]] = -1e9
+                    scores[:, 0] = -1e9  # padding
+                    metrics_batch = absolute_recall_mrr_ndcg_for_ks(
+                        scores, labels.view(-1), self.metric_ks
+                    )
+                    for k in sorted(self.metric_ks, reverse=True):
+                        test_metrics[f"Recall@{k}"] += metrics_batch[f"Recall@{k}"]
+                        test_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
+                        test_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
+                    top_scores, top_indices = torch.topk(
+                        scores, self.args.llm_negative_sample_size + 1
+                    )
+                    for u, (p, l, idx) in enumerate(
+                        zip(top_scores, labels, top_indices), start=1
+                    ):
+                        if l in idx:
+                            test_probs.append(p.tolist())
+                            test_labels.append(l.item())
+                            test_users.append(u)
+                            test_candidates.append(idx.tolist())
+                            retrieval_metrics[f"Recall@{k}"] += metrics_batch[
+                                f"Recall@{k}"
+                            ]
+                            retrieval_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
+                            retrieval_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
+                        else:
+                            non_test_users.append(u)
+                            non_retrieval_metrics[f"Recall@{k}"] += metrics_batch[
+                                f"Recall@{k}"
+                            ]
+                            non_retrieval_metrics[f"MRR@{k}"] += metrics_batch[
+                                f"MRR@{k}"
+                            ]
+                            non_retrieval_metrics[f"NDCG@{k}"] += metrics_batch[
+                                f"NDCG@{k}"
+                            ]
+            for k in sorted(self.metric_ks, reverse=True):
+                test_metrics[f"Recall@{k}"] /= self.args.num_users
+                test_metrics[f"MRR@{k}"] /= self.args.num_users
+                test_metrics[f"NDCG@{k}"] /= self.args.num_users
+                retrieval_metrics[f"Recall@{k}"] /= len(test_users)
+                retrieval_metrics[f"MRR@{k}"] /= len(test_users)
+                retrieval_metrics[f"NDCG@{k}"] /= len(test_users)
+                non_retrieval_metrics[f"Recall@{k}"] /= len(non_test_users)
+                non_retrieval_metrics[f"MRR@{k}"] /= len(non_test_users)
+                non_retrieval_metrics[f"NDCG@{k}"] /= len(non_test_users)
             print(test_metrics)
+            print(retrieval_metrics)
+            print(non_retrieval_metrics)
 
         with open(retrieved_data_path, "wb") as f:
             pickle.dump(
@@ -95,9 +171,16 @@ class LRUTrainer(BaseTrainer):
                     "val_probs": val_probs,
                     "val_labels": val_labels,
                     "val_metrics": val_metrics,
+                    "val_users": val_users,
+                    "val_candidates": val_candidates,
                     "test_probs": test_probs,
                     "test_labels": test_labels,
                     "test_metrics": test_metrics,
+                    "test_users": test_users,
+                    "test_candidates": test_candidates,
+                    "non_test_users": non_test_users,
+                    "retrieval_metrics": retrieval_metrics,
+                    "non_retrieval_metrics": non_retrieval_metrics,
                 },
                 f,
             )
