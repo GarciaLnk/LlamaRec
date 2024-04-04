@@ -87,14 +87,12 @@ class LRUTrainer(BaseTrainer):
                     top_scores, top_indices = torch.topk(
                         scores, self.args.llm_negative_sample_size + 1
                     )
-                    for u, (p, l, idx) in enumerate(
-                        zip(top_scores, labels, top_indices), start=1
-                    ):
-                        if l in idx:
-                            val_probs.append(p.tolist())
-                            val_labels.append(l.item())
-                            val_users.append(u)
-                            val_candidates.append(idx.tolist())
+                    user_id = batch_idx * B + j + 1
+                    if labels[0].item() in top_indices[0].tolist():
+                        val_probs.append(top_scores[0].tolist())
+                        val_labels.append(labels[0].item())
+                        val_users.append(user_id)
+                        val_candidates.append(top_indices[0].tolist())
             for k in sorted(self.metric_ks, reverse=True):
                 val_metrics[f"Recall@{k}"] /= self.args.num_users
                 val_metrics[f"MRR@{k}"] /= self.args.num_users
@@ -127,30 +125,22 @@ class LRUTrainer(BaseTrainer):
                     top_scores, top_indices = torch.topk(
                         scores, self.args.llm_negative_sample_size + 1
                     )
-                    for u, (p, l, idx) in enumerate(
-                        zip(top_scores, labels, top_indices), start=1
-                    ):
-                        if l in idx:
-                            test_probs.append(p.tolist())
-                            test_labels.append(l.item())
-                            test_users.append(u)
-                            test_candidates.append(idx.tolist())
-                            retrieval_metrics[f"Recall@{k}"] += metrics_batch[
-                                f"Recall@{k}"
-                            ]
-                            retrieval_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
-                            retrieval_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
-                        else:
-                            non_test_users.append(u)
-                            non_retrieval_metrics[f"Recall@{k}"] += metrics_batch[
-                                f"Recall@{k}"
-                            ]
-                            non_retrieval_metrics[f"MRR@{k}"] += metrics_batch[
-                                f"MRR@{k}"
-                            ]
-                            non_retrieval_metrics[f"NDCG@{k}"] += metrics_batch[
-                                f"NDCG@{k}"
-                            ]
+                    user_id = batch_idx * B + j + 1
+                    if labels[0].item() in top_indices[0].tolist():
+                        test_probs.append(top_scores[0].tolist())
+                        test_labels.append(labels[0].item())
+                        test_users.append(user_id)
+                        test_candidates.append(top_indices[0].tolist())
+                        retrieval_metrics[f"Recall@{k}"] += metrics_batch[f"Recall@{k}"]
+                        retrieval_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
+                        retrieval_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
+                    else:
+                        non_test_users.append(user_id)
+                        non_retrieval_metrics[f"Recall@{k}"] += metrics_batch[
+                            f"Recall@{k}"
+                        ]
+                        non_retrieval_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
+                        non_retrieval_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
             for k in sorted(self.metric_ks, reverse=True):
                 test_metrics[f"Recall@{k}"] /= self.args.num_users
                 test_metrics[f"MRR@{k}"] /= self.args.num_users
