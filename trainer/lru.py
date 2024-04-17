@@ -42,7 +42,7 @@ class LRUTrainer(BaseTrainer):
 
     def generate_candidates(self, retrieved_data_path):
         self.model.eval()
-        val_probs, val_labels, val_users, val_candidates = [], [], [], []
+        val_users, val_candidates = [], []
         test_probs, test_labels, test_users, test_candidates = [], [], [], []
         non_test_users = []
         val_metrics, test_metrics = {}, {}
@@ -65,7 +65,8 @@ class LRUTrainer(BaseTrainer):
                 "*************** Generating Candidates for Validation Set ***************"
             )
             tqdm_dataloader = tqdm(self.val_loader)
-            for batch_idx, batch in enumerate(tqdm_dataloader):
+            total_items_processed = 0
+            for _, batch in enumerate(tqdm_dataloader):
                 batch = self.to_device(batch)
                 seqs, all_labels = batch
 
@@ -84,15 +85,14 @@ class LRUTrainer(BaseTrainer):
                         val_metrics[f"Recall@{k}"] += metrics_batch[f"Recall@{k}"]
                         val_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
                         val_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
-                    top_scores, top_indices = torch.topk(
+                    _, top_indices = torch.topk(
                         scores, self.args.llm_negative_sample_size + 1
                     )
-                    user_id = batch_idx * B + j + 1
+                    user_id = total_items_processed + j + 1
                     if labels[0].item() in top_indices[0].tolist():
-                        val_probs.append(top_scores[0].tolist())
-                        val_labels.append(labels[0].item())
                         val_users.append(user_id)
                         val_candidates.append(top_indices[0].tolist())
+                total_items_processed += B
             for k in sorted(self.metric_ks, reverse=True):
                 val_metrics[f"Recall@{k}"] /= self.args.num_users
                 val_metrics[f"MRR@{k}"] /= self.args.num_users
@@ -103,7 +103,8 @@ class LRUTrainer(BaseTrainer):
                 "****************** Generating Candidates for Test Set ******************"
             )
             tqdm_dataloader = tqdm(self.test_loader)
-            for batch_idx, batch in enumerate(tqdm_dataloader):
+            total_items_processed = 0
+            for _, batch in enumerate(tqdm_dataloader):
                 batch = self.to_device(batch)
                 seqs, all_labels = batch
 
@@ -125,7 +126,7 @@ class LRUTrainer(BaseTrainer):
                     top_scores, top_indices = torch.topk(
                         scores, self.args.llm_negative_sample_size + 1
                     )
-                    user_id = batch_idx * B + j + 1
+                    user_id = total_items_processed + j + 1
                     if labels[0].item() in top_indices[0].tolist():
                         test_probs.append(top_scores[0].tolist())
                         test_labels.append(labels[0].item())
@@ -141,6 +142,7 @@ class LRUTrainer(BaseTrainer):
                         ]
                         non_retrieval_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
                         non_retrieval_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
+                total_items_processed += B
             for k in sorted(self.metric_ks, reverse=True):
                 test_metrics[f"Recall@{k}"] /= self.args.num_users
                 test_metrics[f"MRR@{k}"] /= self.args.num_users
@@ -158,8 +160,6 @@ class LRUTrainer(BaseTrainer):
         with open(retrieved_data_path, "wb") as f:
             pickle.dump(
                 {
-                    "val_probs": val_probs,
-                    "val_labels": val_labels,
                     "val_metrics": val_metrics,
                     "val_users": val_users,
                     "val_candidates": val_candidates,
