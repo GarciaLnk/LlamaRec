@@ -19,13 +19,21 @@ def ndcg(scores, labels, k):
     return ndcg.mean()
 
 
-def absolute_recall_mrr_ndcg_for_ks(scores, labels, ks):
+def absolute_recall_mrr_ndcg_for_ks(
+    scores, labels, ks, num_classes=None, preprocessed=False
+):
     metrics = {}
-    labels = F.one_hot(labels, num_classes=scores.size(1))
+    if num_classes is None:
+        num_classes = scores.size(1)
+    labels = F.one_hot(labels, num_classes=num_classes)
     answer_count = labels.sum(1)
 
     labels_float = labels.float()
-    rank = (-scores).argsort(dim=1)
+
+    if not preprocessed:
+        rank = (-scores).argsort(dim=1)
+    else:
+        rank = scores
 
     cut = rank
     for k in sorted(ks, reverse=True):

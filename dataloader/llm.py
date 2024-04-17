@@ -144,15 +144,25 @@ class LLMDataloader:
         self.test_users = retrieved_file["test_users"]
         self.test_candidates = retrieved_file["test_candidates"]
         self.non_test_users = retrieved_file["non_test_users"]
-        self.retrieval_metrics = retrieved_file["retrieval_metrics"]
-        self.non_retrieval_metrics = retrieved_file["non_retrieval_metrics"]
         self.test_metrics = retrieved_file["test_metrics"]
         self.test_retrieval = {
             "original_size": len(self.test_probs),
             "retrieval_size": len(self.test_candidates),
-            "original_metrics": self.test_metrics,
-            "retrieval_metrics": self.retrieval_metrics,
-            "non_retrieval_metrics": self.non_retrieval_metrics,
+            "original_metrics": retrieved_file["test_metrics"],
+            "retrieval_metrics": absolute_recall_mrr_ndcg_for_ks(
+                torch.tensor(self.test_probs)[torch.tensor(self.test_users) - 1],
+                torch.tensor(self.test_labels)[torch.tensor(self.test_users) - 1],
+                args.metric_ks,
+                num_classes=self.item_count + 1,
+                preprocessed=True,
+            ),
+            "non_retrieval_metrics": absolute_recall_mrr_ndcg_for_ks(
+                torch.tensor(self.test_probs)[torch.tensor(self.non_test_users) - 1],
+                torch.tensor(self.test_labels)[torch.tensor(self.non_test_users) - 1],
+                args.metric_ks,
+                num_classes=self.item_count + 1,
+                preprocessed=True,
+            ),
         }
 
     @classmethod
