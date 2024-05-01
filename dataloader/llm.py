@@ -8,8 +8,6 @@ import torch.utils.data as data_utils
 from transformers import AutoTokenizer
 from transformers.models.llama.tokenization_llama import DEFAULT_SYSTEM_PROMPT
 
-from trainer import absolute_metrics_batch_wrapper
-
 from .utils import Prompter
 
 
@@ -145,25 +143,7 @@ class LLMDataloader:
         self.test_candidates = retrieved_file["test_candidates"]
         self.non_test_users = retrieved_file["non_test_users"]
         self.test_metrics = retrieved_file["test_metrics"]
-        self.test_retrieval = {
-            "original_size": len(self.test_probs),
-            "retrieval_size": len(self.test_candidates),
-            "original_metrics": retrieved_file["test_metrics"],
-            "retrieval_metrics": absolute_metrics_batch_wrapper(
-                torch.tensor(self.test_probs)[torch.tensor(self.test_users) - 1],
-                torch.tensor(self.test_labels)[torch.tensor(self.test_users) - 1],
-                args.metric_ks,
-                num_classes=self.item_count + 1,
-                preprocessed=True,
-            ),
-            "non_retrieval_metrics": absolute_metrics_batch_wrapper(
-                torch.tensor(self.test_probs)[torch.tensor(self.non_test_users) - 1],
-                torch.tensor(self.test_labels)[torch.tensor(self.non_test_users) - 1],
-                args.metric_ks,
-                num_classes=self.item_count + 1,
-                preprocessed=True,
-            ),
-        }
+        self.test_retrieval = retrieved_file["test_retrieval"]
 
     @classmethod
     def code(cls):

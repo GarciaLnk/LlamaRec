@@ -145,6 +145,26 @@ class RNNTrainer(BaseTrainer):
                 test_metrics[f"NDCG@{k}"] /= self.args.num_users
             print(test_metrics)
 
+            test_retrieval = {
+                "original_size": len(test_probs),
+                "retrieval_size": len(test_candidates),
+                "original_metrics": test_metrics,
+                "retrieval_metrics": absolute_metrics_batch_wrapper(
+                    torch.tensor(test_probs)[torch.tensor(test_users) - 1],
+                    torch.tensor(test_labels)[torch.tensor(test_users) - 1],
+                    args.metric_ks,
+                    num_classes=args.num_items + 1,
+                    preprocessed=True,
+                ),
+                "non_retrieval_metrics": absolute_metrics_batch_wrapper(
+                    torch.tensor(test_probs)[torch.tensor(non_test_users) - 1],
+                    torch.tensor(test_labels)[torch.tensor(non_test_users) - 1],
+                    args.metric_ks,
+                    num_classes=args.num_items + 1,
+                    preprocessed=True,
+                ),
+            }
+
         with open(retrieved_data_path, "wb") as f:
             pickle.dump(
                 {
@@ -157,6 +177,7 @@ class RNNTrainer(BaseTrainer):
                     "test_users": test_users,
                     "test_candidates": test_candidates,
                     "non_test_users": non_test_users,
+                    "test_retrieval": test_retrieval,
                 },
                 f,
             )
