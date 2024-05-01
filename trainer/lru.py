@@ -42,62 +42,112 @@ class LRUTrainer(BaseTrainer):
 
     def generate_candidates(self, retrieved_data_path):
         self.model.eval()
-        val_probs, val_labels = [], []
-        test_probs, test_labels = [], []
+        val_users, val_candidates = [], []
+        test_probs, test_labels, test_users, test_candidates = [], [], [], []
+        non_test_users = []
+        val_metrics, test_metrics = {}, {}
+        for k in sorted(self.metric_ks, reverse=True):
+            val_metrics[f"Recall@{k}"] = 0
+            val_metrics[f"MRR@{k}"] = 0
+            val_metrics[f"NDCG@{k}"] = 0
+            test_metrics[f"Recall@{k}"] = 0
+            test_metrics[f"MRR@{k}"] = 0
+            test_metrics[f"NDCG@{k}"] = 0
         with torch.no_grad():
             print(
                 "*************** Generating Candidates for Validation Set ***************"
             )
             tqdm_dataloader = tqdm(self.val_loader)
-            for batch_idx, batch in enumerate(tqdm_dataloader):
+            total_items_processed = 0
+            for _, batch in enumerate(tqdm_dataloader):
                 batch = self.to_device(batch)
-                seqs, labels = batch
+                seqs, all_labels = batch
 
-                scores = self.model(seqs)[:, -1, :]
+                all_scores = self.model(seqs)[:, -1, :]
                 B, L = seqs.shape
-                for i in range(L):
-                    scores[torch.arange(scores.size(0)), seqs[:, i]] = -1e9
-                scores[:, 0] = -1e9  # padding
-                val_probs.extend(scores.tolist())
-                val_labels.extend(labels.view(-1).tolist())
-            val_metrics = absolute_recall_mrr_ndcg_for_ks(
-                torch.tensor(val_probs),
-                torch.tensor(val_labels).view(-1),
-                self.metric_ks,
-            )
+                for j in range(B):
+                    scores = all_scores[j, :].unsqueeze(0)
+                    labels = all_labels[j, :].unsqueeze(0)
+                    for i in range(L):
+                        scores[torch.arange(scores.size(0)), seqs[j, i]] = -1e9
+                    scores[:, 0] = -1e9  # padding
+                    metrics_batch = absolute_recall_mrr_ndcg_for_ks(
+                        scores, labels.view(-1), self.metric_ks
+                    )
+                    for k in sorted(self.metric_ks, reverse=True):
+                        val_metrics[f"Recall@{k}"] += metrics_batch[f"Recall@{k}"]
+                        val_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
+                        val_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
+                    _, top_indices = torch.topk(
+                        scores, self.args.llm_negative_sample_size + 1
+                    )
+                    user_id = total_items_processed + j + 1
+                    if labels[0].item() in top_indices[0].tolist():
+                        val_users.append(user_id)
+                        val_candidates.append(top_indices[0].tolist())
+                total_items_processed += B
+            for k in sorted(self.metric_ks, reverse=True):
+                val_metrics[f"Recall@{k}"] /= self.args.num_users
+                val_metrics[f"MRR@{k}"] /= self.args.num_users
+                val_metrics[f"NDCG@{k}"] /= self.args.num_users
             print(val_metrics)
 
             print(
                 "****************** Generating Candidates for Test Set ******************"
             )
             tqdm_dataloader = tqdm(self.test_loader)
-            for batch_idx, batch in enumerate(tqdm_dataloader):
+            total_items_processed = 0
+            for _, batch in enumerate(tqdm_dataloader):
                 batch = self.to_device(batch)
-                seqs, labels = batch
+                seqs, all_labels = batch
 
-                scores = self.model(seqs)[:, -1, :]
+                all_scores = self.model(seqs)[:, -1, :]
                 B, L = seqs.shape
-                for i in range(L):
-                    scores[torch.arange(scores.size(0)), seqs[:, i]] = -1e9
-                scores[:, 0] = -1e9  # padding
-                test_probs.extend(scores.tolist())
-                test_labels.extend(labels.view(-1).tolist())
-            test_metrics = absolute_recall_mrr_ndcg_for_ks(
-                torch.tensor(test_probs),
-                torch.tensor(test_labels).view(-1),
-                self.metric_ks,
-            )
+                for j in range(B):
+                    scores = all_scores[j, :].unsqueeze(0)
+                    labels = all_labels[j, :].unsqueeze(0)
+                    for i in range(L):
+                        scores[torch.arange(scores.size(0)), seqs[j, i]] = -1e9
+                    scores[:, 0] = -1e9  # padding
+                    test_probs.extend(
+                        (-scores).argsort(dim=1)[:, : max(self.metric_ks)].tolist()
+                    )
+                    test_labels.extend(labels.view(-1).tolist())
+                    metrics_batch = absolute_recall_mrr_ndcg_for_ks(
+                        scores, labels.view(-1), self.metric_ks
+                    )
+                    for k in sorted(self.metric_ks, reverse=True):
+                        test_metrics[f"Recall@{k}"] += metrics_batch[f"Recall@{k}"]
+                        test_metrics[f"MRR@{k}"] += metrics_batch[f"MRR@{k}"]
+                        test_metrics[f"NDCG@{k}"] += metrics_batch[f"NDCG@{k}"]
+                    _, top_indices = torch.topk(
+                        scores, self.args.llm_negative_sample_size + 1
+                    )
+                    user_id = total_items_processed + j + 1
+                    if labels[0].item() in top_indices[0].tolist():
+                        test_users.append(user_id)
+                        test_candidates.append(top_indices[0].tolist())
+                    else:
+                        non_test_users.append(user_id)
+                total_items_processed += B
+            for k in sorted(self.metric_ks, reverse=True):
+                test_metrics[f"Recall@{k}"] /= self.args.num_users
+                test_metrics[f"MRR@{k}"] /= self.args.num_users
+                test_metrics[f"NDCG@{k}"] /= self.args.num_users
             print(test_metrics)
 
         with open(retrieved_data_path, "wb") as f:
             pickle.dump(
                 {
-                    "val_probs": val_probs,
-                    "val_labels": val_labels,
                     "val_metrics": val_metrics,
+                    "val_users": val_users,
+                    "val_candidates": val_candidates,
                     "test_probs": test_probs,
                     "test_labels": test_labels,
                     "test_metrics": test_metrics,
+                    "test_users": test_users,
+                    "test_candidates": test_candidates,
+                    "non_test_users": non_test_users,
                 },
                 f,
             )

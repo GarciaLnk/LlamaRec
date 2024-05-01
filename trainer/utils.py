@@ -19,13 +19,58 @@ def ndcg(scores, labels, k):
     return ndcg.mean()
 
 
-def absolute_recall_mrr_ndcg_for_ks(scores, labels, ks):
+def absolute_metrics_batch_wrapper(
+    scores, labels, ks, num_classes=None, preprocessed=False, batch_size=10000
+):
+    """
+    Wrapper for metrics calculation, calculate metrics of smaller batches of labels and average them
+    """
     metrics = {}
-    labels = F.one_hot(labels, num_classes=scores.size(1))
+    total_batches = (labels.size(0) + batch_size - 1) // batch_size
+    total_samples = labels.size(0)
+
+    for i in range(total_batches):
+        start_idx = i * batch_size
+        end_idx = min(start_idx + batch_size, scores.size(0))
+        curr_batch_size = end_idx - start_idx
+
+        scores_batch = scores[start_idx:end_idx]
+        labels_batch = labels[start_idx:end_idx]
+
+        metrics_batch = absolute_recall_mrr_ndcg_for_ks(
+            scores_batch,
+            labels_batch,
+            ks,
+            num_classes=num_classes,
+            preprocessed=preprocessed,
+        )
+
+        for key, value in metrics_batch.items():
+            if key not in metrics:
+                metrics[key] = 0
+            metrics[key] += value * curr_batch_size
+
+    for key in metrics:
+        metrics[key] /= total_samples
+
+    return metrics
+
+
+def absolute_recall_mrr_ndcg_for_ks(
+    scores, labels, ks, num_classes=None, preprocessed=False
+):
+    metrics = {}
+    if num_classes is None:
+        num_classes = scores.size(1)
+    labels = F.one_hot(labels, num_classes=num_classes)
     answer_count = labels.sum(1)
 
     labels_float = labels.float()
-    rank = (-scores).argsort(dim=1)
+
+    if not preprocessed:
+        rank = (-scores).argsort(dim=1)
+    else:
+        rank = scores
 
     cut = rank
     for k in sorted(ks, reverse=True):

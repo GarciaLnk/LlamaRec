@@ -8,7 +8,7 @@ import torch.utils.data as data_utils
 from transformers import AutoTokenizer
 from transformers.models.llama.tokenization_llama import DEFAULT_SYSTEM_PROMPT
 
-from trainer import absolute_recall_mrr_ndcg_for_ks
+from trainer import absolute_metrics_batch_wrapper
 
 from .utils import Prompter
 
@@ -134,65 +134,34 @@ class LLMDataloader:
         print(
             "******************** Constructing Validation Subset ********************"
         )
-        self.val_probs = retrieved_file["val_probs"]
-        self.val_labels = retrieved_file["val_labels"]
+        self.val_users = retrieved_file["val_users"]
+        self.val_candidates = retrieved_file["val_candidates"]
         self.val_metrics = retrieved_file["val_metrics"]
-        self.val_users = [
-            u
-            for u, (p, l) in enumerate(zip(self.val_probs, self.val_labels), start=1)
-            if l
-            in torch.topk(
-                torch.tensor(p), self.args.llm_negative_sample_size + 1
-            ).indices
-        ]
-        self.val_candidates = [
-            torch.topk(
-                torch.tensor(self.val_probs[u - 1]),
-                self.args.llm_negative_sample_size + 1,
-            ).indices.tolist()
-            for u in self.val_users
-        ]
 
         print("******************** Constructing Test Subset ********************")
         self.test_probs = retrieved_file["test_probs"]
         self.test_labels = retrieved_file["test_labels"]
+        self.test_users = retrieved_file["test_users"]
+        self.test_candidates = retrieved_file["test_candidates"]
+        self.non_test_users = retrieved_file["non_test_users"]
         self.test_metrics = retrieved_file["test_metrics"]
-        self.test_users = [
-            u
-            for u, (p, l) in enumerate(zip(self.test_probs, self.test_labels), start=1)
-            if l
-            in torch.topk(
-                torch.tensor(p), self.args.llm_negative_sample_size + 1
-            ).indices
-        ]
-        self.test_candidates = [
-            torch.topk(
-                torch.tensor(self.test_probs[u - 1]),
-                self.args.llm_negative_sample_size + 1,
-            ).indices.tolist()
-            for u in self.test_users
-        ]
-        self.non_test_users = [
-            u
-            for u, (p, l) in enumerate(zip(self.test_probs, self.test_labels), start=1)
-            if l
-            not in torch.topk(
-                torch.tensor(p), self.args.llm_negative_sample_size + 1
-            ).indices
-        ]
         self.test_retrieval = {
             "original_size": len(self.test_probs),
             "retrieval_size": len(self.test_candidates),
-            "original_metrics": self.test_metrics,
-            "retrieval_metrics": absolute_recall_mrr_ndcg_for_ks(
+            "original_metrics": retrieved_file["test_metrics"],
+            "retrieval_metrics": absolute_metrics_batch_wrapper(
                 torch.tensor(self.test_probs)[torch.tensor(self.test_users) - 1],
                 torch.tensor(self.test_labels)[torch.tensor(self.test_users) - 1],
-                self.args.metric_ks,
+                args.metric_ks,
+                num_classes=self.item_count + 1,
+                preprocessed=True,
             ),
-            "non_retrieval_metrics": absolute_recall_mrr_ndcg_for_ks(
+            "non_retrieval_metrics": absolute_metrics_batch_wrapper(
                 torch.tensor(self.test_probs)[torch.tensor(self.non_test_users) - 1],
                 torch.tensor(self.test_labels)[torch.tensor(self.non_test_users) - 1],
-                self.args.metric_ks,
+                args.metric_ks,
+                num_classes=self.item_count + 1,
+                preprocessed=True,
             ),
         }
 
