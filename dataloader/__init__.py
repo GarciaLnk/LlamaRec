@@ -19,13 +19,3 @@ def dataloader_factory(args):
         return train, val, test, tokenizer, test_retrieval
     else:
         return train, val, test
-
-
-def test_subset_dataloader_loader(args):
-    dataset = dataset_factory(args)
-    if args.model_code == "lru":
-        dataloader = LRUDataloader(args, dataset)
-    elif args.model_code == "llm":
-        dataloader = LLMDataloader(args, dataset)
-
-    return dataloader.get_pytorch_test_subset_dataloader()
