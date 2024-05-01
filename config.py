@@ -23,6 +23,12 @@ def set_template(args):
         else:
             args.bert_max_len = 50
 
+    if args.bert_max_predictions is None:
+        if args.dataset_code == "ml-100k":
+            args.bert_max_predictions = 40
+        else:
+            args.bert_max_predictions = 20
+
     if "llm" in args.model_code:
         batch = 16 if args.dataset_code == "ml-100k" else 12
         if args.lora_micro_batch_size is None:
@@ -141,6 +147,7 @@ parser.add_argument("--bert_head_size", type=int, default=None)
 parser.add_argument("--bert_dropout", type=float, default=0.2)
 parser.add_argument("--bert_attn_dropout", type=float, default=0.2)
 parser.add_argument("--bert_mask_prob", type=float, default=0.25)
+parser.add_argument("--bert_max_predictions", type=float, default=20)
 
 ################
 # LLM Model

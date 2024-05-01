@@ -18,13 +18,61 @@ except:
 def main(args, export_root=None):
     seed_everything(args.seed)
     train_loader, val_loader, test_loader = dataloader_factory(args)
-    model = LRURec(args)
+
+    if args.model_code == "lru":
+        model = LRURec(args)
+    elif args.model_code == "bert":
+        model = BERT(args)
+    elif args.model_code == "sas":
+        model = SASRec(args)
+    elif args.model_code == "narm":
+        model = NARM(args)
+
     if export_root == None:
         export_root = EXPERIMENT_ROOT + "/" + args.model_code + "/" + args.dataset_code
 
-    trainer = LRUTrainer(
-        args, model, train_loader, val_loader, test_loader, export_root, args.use_wandb
-    )
+    if args.model_code == "lru":
+        trainer = LRUTrainer(
+            args,
+            model,
+            train_loader,
+            val_loader,
+            test_loader,
+            export_root,
+            args.use_wandb,
+        )
+    elif args.model_code == "bert":
+        trainer = BERTTrainer(
+            args,
+            model,
+            train_loader,
+            val_loader,
+            test_loader,
+            export_root,
+            args.use_wandb,
+        )
+    elif args.model_code == "sas":
+        trainer = SASTrainer(
+            args,
+            model,
+            train_loader,
+            val_loader,
+            test_loader,
+            export_root,
+            args.use_wandb,
+        )
+    elif args.model_code == "narm":
+        args.num_epochs = 100
+        trainer = RNNTrainer(
+            args,
+            model,
+            train_loader,
+            val_loader,
+            test_loader,
+            export_root,
+            args.use_wandb,
+        )
+
     trainer.train()
     trainer.test()
 
@@ -33,7 +81,14 @@ def main(args, export_root=None):
 
 
 if __name__ == "__main__":
-    args.model_code = "lru"
+    if args.model_code is None:
+        print("******************** Model Selection ********************")
+        model_codes = {"l": "lru", "b": "bert", "s": "sas", "n": "narm"}
+        args.model_code = model_codes[
+            input(
+                "Input model code, l for LRURec, b for BERT, s for SASRec and n for NARM: "
+            )
+        ]
     set_template(args)
     main(args, export_root=None)
 
