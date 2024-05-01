@@ -138,6 +138,7 @@ parser.add_argument("--use_wandb", type=bool, default=False)
 ################
 # Retriever Model
 ################
+parser.add_argument("--hyperparam_search", type=bool, default=False)
 parser.add_argument("--model_code", type=str, default=None)
 parser.add_argument("--bert_max_len", type=int, default=None)
 parser.add_argument("--bert_hidden_units", type=int, default=64)
