@@ -4,6 +4,7 @@ import torch
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+from accelerate import PartialState
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from pytorch_lightning import seed_everything
 from transformers import BitsAndBytesConfig
@@ -43,10 +44,12 @@ def main(args, export_root=None):
         bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.bfloat16,
     )
+    is_distributed = int(os.environ.get("WORLD_SIZE", 1)) > 1
+    device_map = {"": PartialState().process_index} if is_distributed else "auto"
     model = LlamaForCausalLM.from_pretrained(
         args.llm_base_model,
         quantization_config=bnb_config,
-        device_map="auto",
+        device_map=device_map,
         cache_dir=args.llm_cache_dir,
     )
     model.gradient_checkpointing_enable(

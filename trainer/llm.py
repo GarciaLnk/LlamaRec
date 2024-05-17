@@ -113,7 +113,7 @@ class LLMTrainer(Trainer):
             output_dir=export_root,
             save_total_limit=3,
             load_best_model_at_end=True,
-            ddp_find_unused_parameters=None,
+            ddp_find_unused_parameters=False,
             group_by_length=False,
             report_to="wandb" if use_wandb else None,
             run_name=args.model_code + "_" + args.dataset_code if use_wandb else None,
