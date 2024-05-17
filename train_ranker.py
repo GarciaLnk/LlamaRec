@@ -50,7 +50,7 @@ def main(args, export_root=None):
         args.llm_base_model,
         quantization_config=bnb_config,
         device_map=device_map,
-        cache_dir=args.llm_cache_dir,
+        attn_implementation="flash_attention_2",
     )
     if args.lora_gradient_checkpointing:
         model.gradient_checkpointing_enable(
