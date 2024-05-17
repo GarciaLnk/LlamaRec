@@ -1,4 +1,4 @@
-from datasets import dataset_factory
+from llamarec_datasets import dataset_factory
 
 from .bert import BERTDataloader
 from .llm import LLMDataloader
