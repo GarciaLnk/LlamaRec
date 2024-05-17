@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from .base import AbstractDataset
-from .utils import *
+from .utils import download
 
 tqdm.pandas()
 

@@ -3,7 +3,6 @@ import pickle
 import random
 
 import numpy as np
-import torch
 import torch.utils.data as data_utils
 from transformers import AutoTokenizer
 from transformers.models.llama.tokenization_llama import DEFAULT_SYSTEM_PROMPT

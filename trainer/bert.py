@@ -1,12 +1,13 @@
 import pickle
-from abc import *
 
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
-from .base import *
-from .loggers import *
-from .utils import *
+from config import args
+
+from .base import BaseTrainer
+from .utils import absolute_metrics_batch_wrapper, absolute_recall_mrr_ndcg_for_ks
 
 
 class BERTTrainer(BaseTrainer):

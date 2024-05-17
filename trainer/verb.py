@@ -2,7 +2,7 @@ import inspect
 import json
 from abc import abstractmethod
 from collections import namedtuple
-from typing import *
+from typing import Dict, List, Mapping, Optional, Sequence, Union
 
 import numpy as np
 import torch

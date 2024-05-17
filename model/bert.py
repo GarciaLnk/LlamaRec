@@ -1,8 +1,15 @@
 import math
 
+import torch
 from torch import nn as nn
 
-from .attention import *
+from .attention import (
+    GELU,
+    LayerNorm,
+    PositionalEmbedding,
+    TokenEmbedding,
+    TransformerBlock,
+)
 
 
 class BERT(nn.Module):

@@ -2,8 +2,6 @@ import torch
 import torch.nn.functional as F
 from torch import optim as optim
 
-from config import *
-
 
 def absolute_metrics_batch_wrapper(
     scores, labels, ks, num_classes=None, preprocessed=False, batch_size=10000

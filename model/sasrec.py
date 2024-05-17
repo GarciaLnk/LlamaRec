@@ -1,8 +1,9 @@
 import math
 
+import torch
 from torch import nn as nn
 
-from .attention import *
+from .attention import PositionalEmbedding, SASTransformerBlock, TokenEmbedding
 
 
 class SASRec(nn.Module):
