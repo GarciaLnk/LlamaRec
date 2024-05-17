@@ -153,9 +153,9 @@ parser.add_argument("--bert_max_predictions", type=float, default=20)
 ################
 # LLM Model
 ################
-parser.add_argument("--llm_base_model", type=str, default="meta-llama/Llama-2-7b-hf")
+parser.add_argument("--llm_base_model", type=str, default="unsloth/llama-2-7b-bnb-4bit")
 parser.add_argument(
-    "--llm_base_tokenizer", type=str, default="meta-llama/Llama-2-7b-hf"
+    "--llm_base_tokenizer", type=str, default="unsloth/llama-2-7b-bnb-4bit"
 )
 parser.add_argument("--llm_max_title_len", type=int, default=32)
 parser.add_argument("--llm_max_text_len", type=int, default=1536)
