@@ -11,7 +11,7 @@ from transformers import BitsAndBytesConfig
 
 from config import EXPERIMENT_ROOT, PROJECT_NAME, args, set_template
 from dataloader import dataloader_factory
-from model import LlamaForCausalLM
+from model import LlamaForCausalLMPatched
 from trainer import LLMTrainer
 
 try:
@@ -46,7 +46,7 @@ def main(args, export_root=None):
     )
     is_distributed = int(os.environ.get("WORLD_SIZE", 1)) > 1
     device_map = {"": PartialState().process_index} if is_distributed else "auto"
-    model = LlamaForCausalLM.from_pretrained(
+    model = LlamaForCausalLMPatched.from_pretrained(
         args.llm_base_model,
         quantization_config=bnb_config,
         device_map=device_map,
