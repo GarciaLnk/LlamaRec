@@ -104,8 +104,9 @@ class LLMTrainer(Trainer):
             learning_rate=args.lora_lr,
             fp16=not torch.cuda.is_bf16_supported(),
             bf16=torch.cuda.is_bf16_supported(),
+            tf32=torch.cuda.is_bf16_supported(),
             logging_steps=10,
-            optim="paged_adamw_32bit",
+            optim="adamw_bnb_8bit",
             evaluation_strategy="steps",
             save_strategy="steps",
             eval_steps=args.lora_val_iterations,
@@ -119,6 +120,9 @@ class LLMTrainer(Trainer):
             run_name=args.model_code + "_" + args.dataset_code if use_wandb else None,
             metric_for_best_model=args.rerank_best_metric,
             greater_is_better=True,
+            torch_compile=True,
+            dataloader_pin_memory=True,
+            dataloader_num_workers=args.num_workers,
         )
         super().__init__(
             model=model,
