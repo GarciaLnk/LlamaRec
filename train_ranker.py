@@ -52,9 +52,10 @@ def main(args, export_root=None):
         device_map=device_map,
         cache_dir=args.llm_cache_dir,
     )
-    model.gradient_checkpointing_enable(
-        gradient_checkpointing_kwargs={"use_reentrant": False}
-    )
+    if args.lora_gradient_checkpointing:
+        model.gradient_checkpointing_enable(
+            gradient_checkpointing_kwargs={"use_reentrant": False}
+        )
     model = prepare_model_for_kbit_training(model)
     config = LoraConfig(
         r=args.lora_r,

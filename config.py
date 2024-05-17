@@ -188,6 +188,7 @@ parser.add_argument("--lora_val_iterations", type=int, default=100)
 parser.add_argument("--lora_early_stopping_patience", type=int, default=20)
 parser.add_argument("--lora_lr", type=float, default=1e-4)
 parser.add_argument("--lora_micro_batch_size", type=int, default=None)
+parser.add_argument("--lora_gradient_checkpointing", type=bool, default=True)
 
 ################
 
