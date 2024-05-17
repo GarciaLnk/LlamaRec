@@ -120,7 +120,6 @@ class LLMTrainer(Trainer):
             run_name=args.model_code + "_" + args.dataset_code if use_wandb else None,
             metric_for_best_model=args.rerank_best_metric,
             greater_is_better=True,
-            torch_compile=True,
             dataloader_pin_memory=True,
             dataloader_num_workers=args.num_workers,
         )
