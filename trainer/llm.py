@@ -10,7 +10,7 @@ from .utils import absolute_recall_mrr_ndcg_for_ks
 from .verb import ManualVerbalizer
 
 
-def llama_collate_fn_w_truncation(llm_max_length, eval=False):
+def llama_collate_fn_w_truncation(llm_max_length, eval=False, tokenizer=None):
     def llama_collate_fn(batch):
         all_input_ids = []
         all_attention_mask = []
@@ -36,10 +36,15 @@ def llama_collate_fn_w_truncation(llm_max_length, eval=False):
                 if not eval:
                     labels = [-100] * padding_length + labels
 
+            if tokenizer is None:
+                eos_token_id = 2
+            else:
+                eos_token_id = tokenizer.eos_token_id
+
             if eval:
                 assert input_ids[-1] == 13
             else:
-                assert input_ids[-3] == 13 and input_ids[-1] == 2
+                assert input_ids[-3] == 13 and input_ids[-1] == eos_token_id
                 assert labels[-3] == -100 and labels[-2] != -100
 
             all_input_ids.append(torch.tensor(input_ids).long())
@@ -141,13 +146,13 @@ class LLMTrainer(Trainer):
         self.tokenizer = tokenizer
 
         self.train_loader.collate_fn = llama_collate_fn_w_truncation(
-            self.llm_max_text_len, eval=False
+            self.llm_max_text_len, eval=False, tokenizer=tokenizer
         )
         self.val_loader.collate_fn = llama_collate_fn_w_truncation(
-            self.llm_max_text_len, eval=True
+            self.llm_max_text_len, eval=True, tokenizer=tokenizer
         )
         self.test_loader.collate_fn = llama_collate_fn_w_truncation(
-            self.llm_max_text_len, eval=True
+            self.llm_max_text_len, eval=True, tokenizer=tokenizer
         )
         self.compute_metrics = compute_metrics_for_ks(
             self.rerank_metric_ks, self.verbalizer

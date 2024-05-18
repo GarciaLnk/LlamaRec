@@ -17,6 +17,14 @@ def set_template(args):
             input("Input 1 for ml-100k, b for beauty, g for games and m for music: ")
         ]
 
+    match args.llm:
+        case "phi3":
+            args.llm_base_model = "unsloth/Phi-3-mini-4k-instruct-bnb-4bit"
+            args.llm_base_tokenizer = "unsloth/Phi-3-mini-4k-instruct-bnb-4bit"
+        case "llama2":
+            args.llm_base_model = "unsloth/llama-2-7b-bnb-4bit"
+            args.llm_base_tokenizer = "unsloth/llama-2-7b-bnb-4bit"
+
     if args.bert_max_len is None:
         if args.dataset_code == "ml-100k":
             args.bert_max_len = 200
@@ -185,6 +193,7 @@ parser.add_argument("--bert_max_predictions", type=float, default=20)
 ################
 # LLM Model
 ################
+parser.add_argument("--llm", type=str, default=None, choices=["llama2", "phi3"])
 parser.add_argument("--llm_base_model", type=str, default="unsloth/llama-2-7b-bnb-4bit")
 parser.add_argument(
     "--llm_base_tokenizer", type=str, default="unsloth/llama-2-7b-bnb-4bit"

@@ -6,7 +6,7 @@ from accelerate import PartialState
 
 from config import EXPERIMENT_ROOT, PROJECT_NAME, args, set_template
 from dataloader import dataloader_factory
-from model import FastLlamaModelPatched
+from model import FastLanguageModelPatched
 from trainer import LLMTrainer
 
 from pytorch_lightning import seed_everything  # isort: skip
@@ -37,12 +37,12 @@ def main(args, export_root=None):
     ) = dataloader_factory(args)
     is_distributed = int(os.environ.get("WORLD_SIZE", 1)) > 1
     device_map = {"": PartialState().process_index} if is_distributed else "sequential"
-    model, _ = FastLlamaModelPatched.from_pretrained(
+    model, _ = FastLanguageModelPatched.from_pretrained(
         model_name=args.llm_base_model,
         load_in_4bit=True,
         device_map=device_map,
     )
-    model = FastLlamaModelPatched.get_peft_model(
+    model = FastLanguageModelPatched.get_peft_model(
         model,
         r=args.lora_r,
         lora_alpha=args.lora_alpha,
