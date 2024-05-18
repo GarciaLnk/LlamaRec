@@ -36,19 +36,19 @@ def set_template(args):
         args.val_strategy = "epoch" if args.val_strategy is None else args.val_strategy
         args.early_stopping_patience = 5 if args.early_stopping_patience is None else args.early_stopping_patience
         args.lora_val_iterations = 500 if args.lora_val_iterations is None else args.lora_val_iterations
+        args.lora_val_delay = 5000 if args.lora_val_delay is None else args.lora_val_delay
         args.lora_micro_batch_size = 16 if args.lora_micro_batch_size is None else args.lora_micro_batch_size
-        args.lora_early_stopping_patience = 2 if args.lora_early_stopping_patience is None else args.lora_early_stopping_patience
+        args.lora_early_stopping_patience = 4 if args.lora_early_stopping_patience is None else args.lora_early_stopping_patience
+        args.lora_max_steps = 20000 if args.lora_max_steps is None else args.lora_max_steps
     # fmt: on
 
     if args.min_uc is None:
         args.min_uc = 5
-
     if args.min_sc is None:
         args.min_sc = 5
 
     if args.val_strategy is None:
         args.val_strategy = "iteration"
-
     if args.early_stopping_patience is None:
         args.early_stopping_patience = 20
 
@@ -62,8 +62,7 @@ def set_template(args):
         args.lora_max_steps = -1
 
     if "llm" in args.model_code:
-        batch = 16 if args.dataset_code == "ml-100k" else 12
-        batch = 32 if args.dataset_code == "music" else batch
+        batch = 32 if args.dataset_code == "music" else 16
         if args.lora_micro_batch_size is None:
             args.lora_micro_batch_size = batch
     else:
@@ -97,7 +96,7 @@ def set_template(args):
     if args.enable_lr_warmup is None:
         args.enable_lr_warmup = False
     if args.warmup_steps is None:
-        args.warmup_steps = 100
+        args.warmup_steps = 10
 
     if args.metric_ks is None:
         args.metric_ks = [1, 5, 10, 20, 50]
@@ -214,7 +213,7 @@ parser.add_argument("--llm_cache_dir", type=str, default=None)
 ################
 parser.add_argument("--lora_r", type=int, default=8)
 parser.add_argument("--lora_alpha", type=int, default=32)
-parser.add_argument("--lora_dropout", type=float, default=0.05)
+parser.add_argument("--lora_dropout", type=float, default=0)
 parser.add_argument("--lora_target_modules", type=list, default=["q_proj", "v_proj"])
 parser.add_argument("--lora_num_epochs", type=int, default=1)
 parser.add_argument("--lora_val_iterations", type=int, default=None)
@@ -222,7 +221,7 @@ parser.add_argument("--lora_val_delay", type=int, default=None)
 parser.add_argument("--lora_val_accumulation_steps", type=int, default=1000)
 parser.add_argument("--lora_early_stopping_patience", type=int, default=None)
 parser.add_argument("--lora_max_steps", type=int, default=None)
-parser.add_argument("--lora_lr", type=float, default=1e-4)
+parser.add_argument("--lora_lr", type=float, default=2e-4)
 parser.add_argument("--lora_micro_batch_size", type=int, default=None)
 parser.add_argument("--lora_gradient_checkpointing", type=bool, default=True)
 
