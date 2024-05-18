@@ -123,7 +123,7 @@ class LLMTrainer(Trainer):
             fp16_full_eval=not torch.cuda.is_bf16_supported(),
             logging_steps=10,
             optim="adamw_bnb_8bit",
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             save_strategy="steps",
             eval_steps=args.lora_val_iterations,
             save_steps=args.lora_val_iterations,
