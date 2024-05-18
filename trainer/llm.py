@@ -6,6 +6,8 @@ import torch
 from transformers import EarlyStoppingCallback, Trainer, TrainingArguments
 from transformers.trainer import DataLoader, Dataset
 
+from config import args
+
 from .utils import absolute_recall_mrr_ndcg_for_ks
 from .verb import ManualVerbalizer
 
@@ -41,10 +43,17 @@ def llama_collate_fn_w_truncation(llm_max_length, eval=False, tokenizer=None):
             else:
                 eos_token_id = tokenizer.eos_token_id
 
-            if eval:
-                assert input_ids[-1] == 13
+            if args.llm == "llama3":
+                newline_token_id = 512
             else:
-                assert input_ids[-3] == 13 and input_ids[-1] == eos_token_id
+                newline_token_id = 13
+
+            if eval:
+                assert input_ids[-1] == newline_token_id
+            else:
+                assert (
+                    input_ids[-3] == newline_token_id and input_ids[-1] == eos_token_id
+                )
                 assert labels[-3] == -100 and labels[-2] != -100
 
             all_input_ids.append(torch.tensor(input_ids).long())

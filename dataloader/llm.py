@@ -31,7 +31,7 @@ def generate_and_tokenize_eval(args, data_point, tokenizer, prompter):
 
 
 def generate_and_tokenize_train(args, data_point, tokenizer, prompter):
-    def tokenize(prompt, add_eos_token=True):
+    def tokenize(prompt, add_eos_token=True, add_bos_token=True):
         result = tokenizer(
             prompt,
             truncation=True,
@@ -42,6 +42,9 @@ def generate_and_tokenize_train(args, data_point, tokenizer, prompter):
         if result["input_ids"][-1] != tokenizer.eos_token_id and add_eos_token:
             result["input_ids"].append(tokenizer.eos_token_id)
             result["attention_mask"].append(1)
+        if result["input_ids"][0] != tokenizer.bos_token_id and add_bos_token:
+            result["input_ids"].insert(0, tokenizer.bos_token_id)
+            result["attention_mask"].insert(0, 1)
 
         result["labels"] = result["input_ids"].copy()
         return result
@@ -116,7 +119,7 @@ class LLMDataloader:
         self.tokenizer = AutoTokenizer.from_pretrained(
             args.llm_base_tokenizer, cache_dir=args.llm_cache_dir
         )
-        if args.llm != "phi3":
+        if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.unk_token
         self.tokenizer.padding_side = "left"
         self.tokenizer.truncation_side = "left"
