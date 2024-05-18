@@ -54,9 +54,12 @@ def set_template(args):
 
     if args.lora_val_iterations is None:
         args.lora_val_iterations = 100
-
+    if args.lora_val_delay is None:
+        args.lora_val_delay = 0
     if args.lora_early_stopping_patience is None:
         args.lora_early_stopping_patience = 20
+    if args.lora_max_steps is None:
+        args.lora_max_steps = -1
 
     if "llm" in args.model_code:
         batch = 16 if args.dataset_code == "ml-100k" else 12
@@ -215,7 +218,10 @@ parser.add_argument("--lora_dropout", type=float, default=0.05)
 parser.add_argument("--lora_target_modules", type=list, default=["q_proj", "v_proj"])
 parser.add_argument("--lora_num_epochs", type=int, default=1)
 parser.add_argument("--lora_val_iterations", type=int, default=None)
+parser.add_argument("--lora_val_delay", type=int, default=None)
+parser.add_argument("--lora_val_accumulation_steps", type=int, default=1000)
 parser.add_argument("--lora_early_stopping_patience", type=int, default=None)
+parser.add_argument("--lora_max_steps", type=int, default=None)
 parser.add_argument("--lora_lr", type=float, default=1e-4)
 parser.add_argument("--lora_micro_batch_size", type=int, default=None)
 parser.add_argument("--lora_gradient_checkpointing", type=bool, default=True)
