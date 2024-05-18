@@ -105,6 +105,8 @@ class LLMTrainer(Trainer):
             fp16=not torch.cuda.is_bf16_supported(),
             bf16=torch.cuda.is_bf16_supported(),
             tf32=torch.cuda.is_bf16_supported(),
+            bf16_full_eval=torch.cuda.is_bf16_supported(),
+            fp16_full_eval=not torch.cuda.is_bf16_supported(),
             logging_steps=10,
             optim="adamw_bnb_8bit",
             evaluation_strategy="steps",
