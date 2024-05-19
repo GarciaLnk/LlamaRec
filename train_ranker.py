@@ -12,7 +12,7 @@ from config import EXPERIMENT_ROOT, PROJECT_NAME, args, set_template
 from dataloader import dataloader_factory
 from trainer import LLMTrainer
 
-if args.llm_disable_unsloth:
+if not args.llm_enable_unsloth:
     from model.llm import AutoModelForCausalLMPatched
 else:
     from model.llm_unsloth import FastLanguageModelPatched
@@ -45,7 +45,7 @@ def main(args, export_root=None):
     ) = dataloader_factory(args)
     is_distributed = int(os.environ.get("WORLD_SIZE", 1)) > 1
     device_map = {"": PartialState().process_index} if is_distributed else "sequential"
-    if args.llm_disable_unsloth:
+    if not args.llm_enable_unsloth:
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
