@@ -64,7 +64,10 @@ def main(args, export_root=None):
             model.gradient_checkpointing_enable(
                 gradient_checkpointing_kwargs={"use_reentrant": False}
             )
-        model = prepare_model_for_kbit_training(model)
+        model = prepare_model_for_kbit_training(
+            model,
+            gradient_checkpointing_kwargs={"use_reentrant": True},
+        )
         config = LoraConfig(
             r=args.lora_r,
             lora_alpha=args.lora_alpha,
