@@ -7,6 +7,14 @@ from peft import PeftConfig, PeftModel, PeftModelForCausalLM
 from transformers import AutoConfig
 from transformers import __version__ as transformers_version
 from transformers.modeling_outputs import CausalLMOutputWithPast
+from transformers.models.gemma.modeling_gemma import (
+    GemmaAttention,
+    GemmaDecoderLayer,
+    GemmaFlashAttention2,
+    GemmaForCausalLM,
+    GemmaModel,
+    GemmaSdpaAttention,
+)
 from transformers.models.llama.modeling_llama import (
     LlamaAttention,
     LlamaDecoderLayer,
@@ -25,7 +33,12 @@ from transformers.models.mistral.modeling_mistral import (
 )
 from unsloth import FastLanguageModel
 from unsloth.kernels import fast_cross_entropy_loss
-from unsloth.models.gemma import FastGemmaModel
+from unsloth.models.gemma import (
+    FastGemmaModel,
+    GemmaDecoderLayer_fast_forward,
+    GemmaFixedRotaryEmbedding,
+    GemmaModel_fast_forward_inference,
+)
 from unsloth.models.llama import (
     FastLlamaModel,
     LlamaAttention_fast_forward,
@@ -103,7 +116,7 @@ class FastLanguageModelPatched(FastLanguageModel):
                     f'Try `pip install --upgrade "transformers>=4.38"`\n'
                     f"to obtain the latest transformers build, then restart this session."
                 )
-            dispatch_model = FastGemmaModel
+            dispatch_model = FastGemmaModelPatched
         elif model_type == "qwen2":
             dispatch_model = FastQwen2Model
         else:
@@ -485,3 +498,31 @@ class FastMistralModelPatched(FastMistralModel):
     pass
 
     FastMistralModel.pre_patch = custom_pre_patch
+
+
+class FastGemmaModelPatched(FastGemmaModel):
+
+    @staticmethod
+    def pre_patch():
+        GemmaAttention.forward = LlamaAttention_fast_forward
+        GemmaSdpaAttention.forward = LlamaAttention_fast_forward
+        GemmaFlashAttention2.forward = LlamaAttention_fast_forward
+        GemmaDecoderLayer.forward = GemmaDecoderLayer_fast_forward
+        GemmaModel.forward = LlamaModel_fast_forward
+        GemmaForCausalLM.forward = CausalLM_fast_forward_patched(
+            GemmaModel_fast_forward_inference
+        )
+        PeftModelForCausalLM.forward = PeftModelForCausalLM_fast_forward
+        # Solves https://github.com/unslothai/unsloth/issues/168
+        # Static KV Cache was introduced in 4.38.0, causing training to be much slower.
+        # Inferene can now be CUDAGraphed, but we shall retain the old rotary embeddings.
+        # https://github.com/huggingface/transformers/pull/27931
+        # https://github.com/huggingface/transformers/blob/v4.37.2/src/transformers/models/llama/modeling_llama.py
+        import transformers.models.gemma.modeling_gemma
+
+        transformers.models.gemma.modeling_gemma.GemmaRotaryEmbedding = (
+            GemmaFixedRotaryEmbedding
+        )
+        return
+
+    pass
