@@ -78,9 +78,13 @@ def set_template(args):
 
     if "llm" in args.model_code:
         batch = 16 if args.dataset_code != "beauty" else 8
+        if args.llm == "llama3":
+            batch //= 2
         if args.lora_micro_batch_size is None:
             args.lora_micro_batch_size = batch
         batch = 16 if args.dataset_code != "ml-100k" else 32
+        if args.llm == "llama3":
+            batch //= 2
     else:
         batch = 16 if args.dataset_code == "ml-100k" else 64
 
