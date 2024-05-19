@@ -43,17 +43,8 @@ def llama_collate_fn_w_truncation(llm_max_length, eval=False, tokenizer=None):
             else:
                 eos_token_id = tokenizer.eos_token_id
 
-            if args.llm == "llama3":
-                newline_token_id = 512
-            else:
-                newline_token_id = 13
-
-            if eval:
-                assert input_ids[-1] == newline_token_id
-            else:
-                assert (
-                    input_ids[-3] == newline_token_id and input_ids[-1] == eos_token_id
-                )
+            if not eval:
+                assert input_ids[-1] == eos_token_id
                 assert labels[-3] == -100 and labels[-2] != -100
 
             all_input_ids.append(torch.tensor(input_ids).long())
