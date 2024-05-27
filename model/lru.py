@@ -1,6 +1,5 @@
 import math
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -74,9 +73,9 @@ class LRUModel(nn.Module):
     def forward(self, x, embedding_weight, mask):
         # left padding to the power of 2
         seq_len = x.size(1)
-        log2_L = int(np.ceil(np.log2(seq_len)))
-        x = F.pad(x, (0, 0, 2**log2_L - x.size(1), 0, 0, 0))
-        mask_ = F.pad(mask, (2**log2_L - mask.size(1), 0, 0, 0))
+        log2_L = int(torch.ceil(torch.log2(torch.tensor(seq_len))))
+        x = F.pad(x, (0, 0, int(2**log2_L - x.size(1)), 0, 0, 0))
+        mask_ = F.pad(mask, (int(2**log2_L - mask.size(1)), 0, 0, 0))
 
         # LRU blocks with pffn
         for lru_block in self.lru_blocks:
@@ -114,7 +113,7 @@ class LRULayer(nn.Module):
         u1 = torch.rand(self.hidden_size)
         u2 = torch.rand(self.hidden_size)
         nu_log = torch.log(-0.5 * torch.log(u1 * (r_max**2 - r_min**2) + r_min**2))
-        theta_log = torch.log(u2 * torch.tensor(np.pi) * 2)
+        theta_log = torch.log(u2 * torch.tensor(torch.pi) * 2)
         diag_lambda = torch.exp(torch.complex(-torch.exp(nu_log), torch.exp(theta_log)))
         gamma_log = torch.log(torch.sqrt(1 - torch.abs(diag_lambda) ** 2))
         self.params_log = nn.Parameter(torch.vstack((nu_log, theta_log, gamma_log)))
@@ -133,10 +132,10 @@ class LRULayer(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         self.layer_norm = nn.LayerNorm(self.embed_size)
 
-    def lru_parallel(self, i, h, lamb, mask, B, L, D):
+    def lru_parallel(self, i: int, h, lamb, mask, B: int, L: int, D: int):
         # Parallel algorithm, see: https://kexue.fm/archives/9554#%E5%B9%B6%E8%A1%8C%E5%8C%96
         # The original implementation is slightly slower and does not consider 0 padding
-        l = 2**i
+        l = int(2**i)
         h = h.reshape(B * L // l, l, D)  # (B, L, D) -> (B * L // 2, 2, D)
         mask_ = mask.reshape(B * L // l, l)  # (B, L) -> (B * L // 2, 2)
         h1, h2 = h[:, : l // 2], h[:, l // 2 :]  # Divide data in half
@@ -144,7 +143,7 @@ class LRULayer(nn.Module):
         if i > 1:
             lamb = torch.cat((lamb, lamb * lamb[-1]), 0)
         h2 = h2 + lamb * h1[:, -1:] * mask_[:, l // 2 - 1 : l // 2].unsqueeze(-1)
-        h = torch.cat([h1, h2], axis=1)
+        h = torch.cat([h1, h2], dim=1)
         return h, lamb
 
     def forward(self, x, mask):
@@ -154,7 +153,7 @@ class LRULayer(nn.Module):
         h = self.in_proj(x.to(torch.cfloat)) * gamma  # bu
 
         # compute h in parallel
-        log2_L = int(np.ceil(np.log2(h.size(1))))
+        log2_L = int(torch.ceil(torch.log2(torch.tensor(h.size(1)))))
         B, L, D = h.size(0), h.size(1), h.size(2)
         for i in range(log2_L):
             h, lamb = self.lru_parallel(i + 1, h, lamb, mask, B, L, D)
