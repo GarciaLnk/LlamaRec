@@ -32,6 +32,12 @@ def set_template(args):
         case "llama3":
             args.llm_base_model = "meta-llama/Meta-Llama-3-8B"
             args.llm_base_tokenizer = "meta-llama/Meta-Llama-3-8B"
+        case "gemma":
+            args.llm_base_model = "google/gemma-2b"
+            args.llm_base_tokenizer = "google/gemma-2b"
+        case "mistral":
+            args.llm_base_model = "mistralai/Mistral-7B-v0.3"
+            args.llm_base_tokenizer = "mistralai/Mistral-7B-v0.3"
 
     if args.bert_max_len is None:
         if args.dataset_code == "ml-100k":
@@ -80,11 +86,15 @@ def set_template(args):
         batch = 16 if args.dataset_code != "beauty" else 8
         if args.llm == "llama3":
             batch //= 2
+        if args.llm == "gemma":
+            batch //= 4
         if args.lora_micro_batch_size is None:
             args.lora_micro_batch_size = batch
         batch = 16 if args.dataset_code != "ml-100k" else 32
         if args.llm == "llama3":
             batch //= 2
+        if args.llm == "gemma":
+            batch //= 4
     else:
         batch = 16 if args.dataset_code == "ml-100k" else 64
 
@@ -206,7 +216,10 @@ parser.add_argument("--bert_max_predictions", type=float, default=20)
 # LLM Model
 ################
 parser.add_argument(
-    "--llm", type=str, default=None, choices=["llama2", "llama3", "phi3"]
+    "--llm",
+    type=str,
+    default=None,
+    choices=["llama2", "llama3", "phi3", "gemma", "mistral"],
 )
 parser.add_argument("--llm_enable_unsloth", action="store_true")
 parser.add_argument("--llm_base_model", type=str, default="meta-llama/Llama-2-7b-hf")
@@ -242,7 +255,7 @@ parser.add_argument("--lora_target_modules", type=list, default=["q_proj", "v_pr
 parser.add_argument("--lora_num_epochs", type=int, default=1)
 parser.add_argument("--lora_val_iterations", type=int, default=None)
 parser.add_argument("--lora_val_delay", type=int, default=None)
-parser.add_argument("--lora_val_accumulation_steps", type=int, default=500)
+parser.add_argument("--lora_val_accumulation_steps", type=int, default=100)
 parser.add_argument("--lora_early_stopping_patience", type=int, default=None)
 parser.add_argument("--lora_max_steps", type=int, default=None)
 parser.add_argument("--lora_lr", type=float, default=2e-4)
