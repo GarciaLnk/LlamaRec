@@ -15,6 +15,7 @@ class AbstractDataset(metaclass=ABCMeta):
         self.min_rating = args.min_rating
         self.min_uc = args.min_uc
         self.min_sc = args.min_sc
+        self.sample = args.sample
 
         assert (
             self.min_uc >= 2
@@ -59,6 +60,13 @@ class AbstractDataset(metaclass=ABCMeta):
         dataset_path = self._get_preprocessed_dataset_path()
         dataset = pickle.load(dataset_path.open("rb"))
         return dataset
+
+    def sample_data(self, df):
+        if self.sample < 1 and self.sample > 0:
+            sampled_uids = df["uid"].drop_duplicates().sample(frac=self.sample)
+            df = df[df["uid"].isin(sampled_uids)]
+
+        return df
 
     def filter_triplets(self, df):
         print("Filtering triplets")
@@ -123,6 +131,8 @@ class AbstractDataset(metaclass=ABCMeta):
         folder_name = "{}_min_rating{}-min_uc{}-min_sc{}".format(
             self.code(), self.min_rating, self.min_uc, self.min_sc
         )
+        if self.sample < 1 and self.sample > 0:
+            folder_name += "-sample{}".format(self.sample)
         return preprocessed_root.joinpath(folder_name)
 
     def _get_preprocessed_dataset_path(self):

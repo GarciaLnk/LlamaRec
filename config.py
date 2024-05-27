@@ -51,22 +51,12 @@ def set_template(args):
         else:
             args.bert_max_predictions = 20
 
-    # fmt: off
-    if args.dataset_code == "music":
-        args.min_uc = 20 if args.min_uc is None else args.min_uc
-        args.min_sc = 20 if args.min_sc is None else args.min_sc 
-        args.val_strategy = "epoch" if args.val_strategy is None else args.val_strategy
-        args.early_stopping_patience = 5 if args.early_stopping_patience is None else args.early_stopping_patience
-        args.lora_val_iterations = 500 if args.lora_val_iterations is None else args.lora_val_iterations
-        args.lora_val_delay = 5000 if args.lora_val_delay is None else args.lora_val_delay
-        args.lora_early_stopping_patience = 4 if args.lora_early_stopping_patience is None else args.lora_early_stopping_patience
-        args.lora_max_steps = 20000 if args.lora_max_steps is None else args.lora_max_steps
-    # fmt: on
-
     if args.min_uc is None:
         args.min_uc = 5
     if args.min_sc is None:
         args.min_sc = 5
+    if args.sample is None:
+        args.sample = 1 if args.dataset_code != "music" else 0.1
 
     if args.val_strategy is None:
         args.val_strategy = "iteration"
@@ -152,6 +142,7 @@ parser.add_argument("--dataset_code", type=str, default=None)
 parser.add_argument("--min_rating", type=int, default=0)
 parser.add_argument("--min_uc", type=int, default=None)
 parser.add_argument("--min_sc", type=int, default=None)
+parser.add_argument("--sample", type=float, default=None)
 parser.add_argument("--seed", type=int, default=42)
 
 ################

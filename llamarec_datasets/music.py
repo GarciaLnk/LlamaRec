@@ -66,6 +66,7 @@ class MusicDataset(AbstractDataset):
         df = self.load_ratings_df()
         meta_raw = self.load_meta_dict()
         df = df[df["sid"].isin(meta_raw)]  # filter items without meta info
+        df = self.sample_data(df)
         df = self.filter_triplets(df)
         df, umap, smap = self.densify_index(df)
         train, val, test = self.split_df(df, len(umap))
