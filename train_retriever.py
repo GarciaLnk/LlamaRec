@@ -81,14 +81,6 @@ def main(args, export_root=None):
 
 
 if __name__ == "__main__":
-    if args.model_code is None:
-        print("******************** Model Selection ********************")
-        model_codes = {"l": "lru", "b": "bert", "s": "sas", "n": "narm"}
-        args.model_code = model_codes[
-            input(
-                "Input model code, l for LRURec, b for BERT, s for SASRec and n for NARM: "
-            )
-        ]
     set_template(args)
 
     if args.hyperparam_search:

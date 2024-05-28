@@ -10,6 +10,15 @@ PROJECT_NAME = "llmrec"
 
 
 def set_template(args):
+    if args.model_code is None:
+        print("******************** Model Selection ********************")
+        model_codes = {"l": "lru", "b": "bert", "s": "sas", "n": "narm"}
+        args.model_code = model_codes[
+            input(
+                "Input model code, l for LRURec, b for BERT, s for SASRec and n for NARM: "
+            )
+        ]
+
     if args.dataset_code is None:
         print("******************** Dataset Selection ********************")
         dataset_code = {"1": "ml-100k", "b": "beauty", "g": "games", "m": "music"}
