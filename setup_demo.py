@@ -1,3 +1,4 @@
+import glob
 import os
 import pickle
 
@@ -49,11 +50,14 @@ def main(args):
         + "/"
         + args.dataset_code
     )
-    print("Loading LLM model at ", export_root)
-    if not os.path.join(export_root, "adapter_model.safetensors"):
+    checkpoint_dirs = sorted(glob.glob(f"{export_root}/checkpoint-*"))
+    if checkpoint_dirs:
+        export_root = checkpoint_dirs[0]
+    else:
         print("LLM model not found.")
         return
 
+    print("Loading LLM model at ", export_root)
     llm_path = "demo/llm"
     device_map = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     bnb_config = BitsAndBytesConfig(

@@ -65,7 +65,7 @@ def set_template(args):
     if args.min_sc is None:
         args.min_sc = 5
     if args.sample is None:
-        args.sample = 1 if args.dataset_code != "music" else 0.1
+        args.sample = 1
 
     if args.val_strategy is None:
         args.val_strategy = "iteration"

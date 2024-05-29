@@ -16,15 +16,28 @@ from playlists import get_playlist
 from spotipy.oauth2 import SpotifyClientCredentials
 from whoosh.qparser import QueryParser
 
-MAX_RESULTS = 20
+MAX_SEARCH_RESULTS = 20
+MAX_RETRIEVER_CANDIDATES = 20
+MAX_RECOMMENDATIONS = 10
 
 
 def get_recommendations(song_ids: List[int]):
-    candidates = retrieve_candidates(retriever, song_ids)
+    candidates = retrieve_candidates(retriever, song_ids, MAX_RETRIEVER_CANDIDATES)
     prompt = generate_prompt(song_ids, candidates, dataset_map)
-    recommendations = rank_candidates(llm, tokenizer, prompt, candidates, dataset_map)
+    recommendations = rank_candidates(
+        llm, tokenizer, prompt, candidates, dataset_map, MAX_RECOMMENDATIONS
+    )
     st.session_state.recommendations = recommendations
     st.session_state.prompt = prompt
+
+
+def search_songs():
+    with ix.searcher() as searcher:
+        query = QueryParser("song", ix.schema).parse(st.session_state.search_input)
+        results = searcher.search(query, limit=MAX_SEARCH_RESULTS)
+        st.session_state.search_results = [
+            (hit["id"], hit["song"]) for hit in results if hit["song"]
+        ]
 
 
 def load_playlist(playlist_type: str):
@@ -120,14 +133,11 @@ with col_res:
         use_container_width=True,
     )
 
-search_term = col_res.text_input("...or search for songs to add to the playlist")
-if search_term:
-    with ix.searcher() as searcher:
-        query = QueryParser("song", ix.schema).parse(search_term)
-        results = searcher.search(query, limit=MAX_RESULTS)
-        st.session_state.search_results = [
-            (hit["id"], hit["song"]) for hit in results if hit["song"]
-        ]
+col_res.text_input(
+    "...or search for songs to add to the playlist",
+    on_change=search_songs,
+    key="search_input",
+)
 
 search_results = st.session_state.search_results
 playlist_songs = st.session_state.playlist_songs
