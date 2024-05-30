@@ -1,3 +1,5 @@
+import threading
+
 import spotipy
 import streamlit as st
 import streamlit.components.v1 as components
@@ -12,12 +14,14 @@ from playlists import load_playlist_map
 
 MAX_SEARCH_RESULTS = 20
 MAX_RETRIEVER_CANDIDATES = 10
+MAX_PLAYLIST_SIZE = 50
 
 
 def get_recommendations(songs_ids: list[int]):
-    rec_ids = retrieve_candidates(retriever, songs_ids, MAX_RETRIEVER_CANDIDATES)
-    ret_recommendations = [dataset_map[rec_id] for rec_id in rec_ids]
-    st.session_state.recommendations = ret_recommendations
+    with st.session_state.lock_recommender:
+        rec_ids = retrieve_candidates(retriever, songs_ids, MAX_RETRIEVER_CANDIDATES)
+        ret_recommendations = [dataset_map[rec_id] for rec_id in rec_ids]
+        st.session_state.recommendations = ret_recommendations
 
 
 def search_songs():
@@ -30,19 +34,19 @@ def search_songs():
 
 
 def load_playlist(playlist_name: str):
-    st.session_state.playlist_songs = playlist_map[playlist_name]
+    st.session_state.playlist_songs = playlist_map[playlist_name][:]
 
 
 def add_to_playlist(song_num: int, song_name: str):
+    if len(st.session_state.playlist_songs) >= MAX_PLAYLIST_SIZE:
+        st.warning("Playlist is full, remove a song to add another.")
+        return
     st.session_state.playlist_songs.append((song_num, song_name))
 
 
 def remove_from_playlist(index: int):
-    st.session_state.playlist_songs.pop(index)
-
-
-def set_recommending_state(is_recommending: bool):
-    st.session_state.is_recommending = is_recommending
+    if st.session_state.playlist_songs:
+        st.session_state.playlist_songs.pop(index)
 
 
 def lookup_spotify_uri(song_name: str) -> str:
@@ -83,7 +87,9 @@ st.set_page_config(
 st.session_state.search_results = st.session_state.get("search_results", [])
 st.session_state.playlist_songs = st.session_state.get("playlist_songs", [])
 st.session_state.recommendations = st.session_state.get("recommendations", [])
-st.session_state.is_recommending = st.session_state.get("is_recommending", False)
+st.session_state.lock_recommender = st.session_state.get(
+    "lock_recommender", threading.Lock()
+)
 
 ix, dataset_map, playlist_map, retriever = load_resources()
 sp = auth_spotify()
