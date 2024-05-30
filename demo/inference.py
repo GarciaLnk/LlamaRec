@@ -1,7 +1,6 @@
 import json
 import pickle
 import re
-from typing import List, Tuple
 
 import torch
 from peft.auto import AutoPeftModelForCausalLM
@@ -25,7 +24,7 @@ def load_retriever(model_path: str = "retriever.pth") -> torch.jit.ScriptModule:
 
 def load_llm(
     llm_path: str = "llm",
-) -> Tuple[AutoPeftModelForCausalLM, PreTrainedTokenizer | PreTrainedTokenizerFast]:
+) -> tuple[AutoPeftModelForCausalLM, PreTrainedTokenizer | PreTrainedTokenizerFast]:
     tokenizer_name_or_path = llm_path
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path)
 
@@ -43,7 +42,7 @@ def load_llm(
     return model, tokenizer
 
 
-def retrieve_candidates(model, query: List[int], top_k: int = 20) -> List[int]:
+def retrieve_candidates(model, query: list[int], top_k: int = 20) -> list[int]:
     seqs = torch.tensor(query).unsqueeze(0).to(device)
     candidates = model(seqs)[:, -1, :]
     candidates = torch.topk(candidates, top_k).indices[0].tolist()
@@ -57,10 +56,10 @@ def rank_candidates(
     model,
     tokenizer,
     prompt: str,
-    candidates: List[int],
+    candidates: list[int],
     dataset_map: dict[int, str],
     top_k: int = 10,
-) -> List[str]:
+) -> list[str]:
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     outputs = model(input_ids=inputs["input_ids"])
     logits = outputs.logits.view(1, -1, outputs.logits.size(-1))
@@ -93,7 +92,7 @@ def rank_candidates(
 
 
 def generate_prompt(
-    query: List[int], candidates: List[int], dataset_map: dict[int, str]
+    query: list[int], candidates: list[int], dataset_map: dict[int, str]
 ) -> str:
     template_file = "template.json"
     instruction = "Given user history in chronological order, recommend an item from the candidate pool with its index letter."
@@ -113,9 +112,11 @@ def generate_prompt(
         ]
     )
 
-    input = input_template.format(q_t, c_t)
+    prompt_input = input_template.format(q_t, c_t)
 
-    with open(template_file) as fp:
+    with open(template_file, encoding="utf-8") as fp:
         template = json.load(fp)
-    prompt = template["prompt_input"].format(instruction=instruction, input=input)
+    prompt = template["prompt_input"].format(
+        instruction=instruction, input=prompt_input
+    )
     return prompt

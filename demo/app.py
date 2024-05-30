@@ -1,4 +1,4 @@
-from typing import List
+import threading
 
 import spotipy
 import streamlit as st
@@ -12,23 +12,29 @@ from inference import (
     rank_candidates,
     retrieve_candidates,
 )
-from playlists import get_playlist
+from peft.auto import AutoPeftModelForCausalLM
+from playlists import load_playlist_map
 from spotipy.oauth2 import SpotifyClientCredentials
+from torch.jit import ScriptModule
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
 
 MAX_SEARCH_RESULTS = 20
 MAX_RETRIEVER_CANDIDATES = 20
 MAX_RECOMMENDATIONS = 10
+MAX_PLAYLIST_SIZE = 50
 
 
-def get_recommendations(song_ids: List[int]):
-    candidates = retrieve_candidates(retriever, song_ids, MAX_RETRIEVER_CANDIDATES)
-    prompt = generate_prompt(song_ids, candidates, dataset_map)
-    recommendations = rank_candidates(
-        llm, tokenizer, prompt, candidates, dataset_map, MAX_RECOMMENDATIONS
-    )
-    st.session_state.recommendations = recommendations
-    st.session_state.prompt = prompt
+def get_recommendations(songs_ids: list[int]):
+    with st.session_state.lock_recommender:
+        candidates = retrieve_candidates(retriever, songs_ids, MAX_RETRIEVER_CANDIDATES)
+        llm_prompt = generate_prompt(songs_ids, candidates, dataset_map)
+        llm_recommendations = rank_candidates(
+            llm, tokenizer, llm_prompt, candidates, dataset_map, MAX_RECOMMENDATIONS
+        )
+        st.session_state.recommendations = llm_recommendations
+        st.session_state.prompt = llm_prompt
 
 
 def search_songs():
@@ -40,40 +46,48 @@ def search_songs():
         ]
 
 
-def load_playlist(playlist_type: str):
-    st.session_state.playlist_songs = get_playlist(playlist_type)
+def load_playlist(playlist_name: str):
+    st.session_state.playlist_songs = playlist_map[playlist_name][:]
 
 
-def add_to_playlist(song_id: int, song: str):
-    st.session_state.playlist_songs.append((song_id, song))
+def add_to_playlist(song_num: int, song_name: str):
+    if len(st.session_state.playlist_songs) >= MAX_PLAYLIST_SIZE:
+        st.warning("Playlist is full, remove a song to add another.")
+        return
+    st.session_state.playlist_songs.append((song_num, song_name))
 
 
 def remove_from_playlist(index: int):
-    st.session_state.playlist_songs.pop(index)
+    if st.session_state.playlist_songs:
+        st.session_state.playlist_songs.pop(index)
 
 
-def set_recommending_state(is_recommending: bool):
-    st.session_state.is_recommending = is_recommending
-
-
-def lookup_spotify_uri(song: str):
-    results = sp.search(q=f"track:{song}", limit=1)
+def lookup_spotify_uri(song_name: str) -> str:
+    results = sp.search(q=f"track:{song_name}", limit=1)
     if results and results["tracks"]["items"]:
         return results["tracks"]["items"][0]["uri"]
     return ""
 
 
 @st.cache_resource
-def load_resources():
+def load_resources() -> tuple[
+    FileIndex,
+    dict[int, str],
+    dict[str, list[tuple[int, str]]],
+    ScriptModule,
+    AutoPeftModelForCausalLM,
+    PreTrainedTokenizer | PreTrainedTokenizerFast,
+]:
     ix = load_index()
     dataset_map = load_dataset_map()
+    playlist_map = load_playlist_map(dataset_map)
     retriever = load_retriever()
     llm, tokenizer = load_llm()
-    return ix, dataset_map, retriever, llm, tokenizer
+    return ix, dataset_map, playlist_map, retriever, llm, tokenizer
 
 
 @st.cache_resource
-def auth_spotify():
+def auth_spotify() -> spotipy.Spotify:
     sp = spotipy.Spotify(
         auth_manager=SpotifyClientCredentials(
             client_id=st.secrets["SPOTIPY_CLIENT_ID"],
@@ -92,9 +106,11 @@ st.set_page_config(
 st.session_state.search_results = st.session_state.get("search_results", [])
 st.session_state.playlist_songs = st.session_state.get("playlist_songs", [])
 st.session_state.recommendations = st.session_state.get("recommendations", [])
-st.session_state.is_recommending = st.session_state.get("is_recommending", False)
+st.session_state.lock_recommender = st.session_state.get(
+    "lock_recommender", threading.Lock()
+)
 
-ix, dataset_map, retriever, llm, tokenizer = load_resources()
+ix, dataset_map, playlist_map, retriever, llm, tokenizer = load_resources()
 sp = auth_spotify()
 
 st.title("LlamaRec Demo")
@@ -189,25 +205,28 @@ with col_recsys:
                     st.markdown(prompt.replace("\n", "\n\n"))
                 for i, rec in enumerate(recommendations):
                     uri = lookup_spotify_uri(rec)
-                    components.html(
-                        f"""
-                        <script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
-                        <div id="iframe-rec-{i}"></div>
-                        <script>
-                        window.onSpotifyIframeApiReady = (IFrameAPI) => {{
-                            const element = document.getElementById('iframe-rec-{i}');
-                            const options = {{
-                                width: '100%',
-                                height: '80',
-                                uri: '{uri}'
+                    if uri:
+                        components.html(
+                            f"""
+                            <script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
+                            <div id="iframe-rec-{i}"></div>
+                            <script>
+                            window.onSpotifyIframeApiReady = (IFrameAPI) => {{
+                                const element = document.getElementById('iframe-rec-{i}');
+                                const options = {{
+                                    width: '100%',
+                                    height: '80',
+                                    uri: '{uri}'
+                                }};
+                                const callback = (EmbedController) => {{}};
+                                IFrameAPI.createController(element, options, callback);
                             }};
-                            const callback = (EmbedController) => {{}};
-                            IFrameAPI.createController(element, options, callback);
-                        }};
-                        </script>
-                        """,
-                        height=88,
-                        scrolling=False,
-                    )
+                            </script>
+                            """,
+                            height=88,
+                            scrolling=False,
+                        )
+                    else:
+                        st.write(f"{rec}")
     else:
         st.write("Add songs to the playlist to get recommendations.")

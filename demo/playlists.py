@@ -1,107 +1,113 @@
-from typing import List, Tuple
+def load_playlist_map(dataset_map: dict[int, str]) -> dict[str, list[tuple[int, str]]]:
+    playlist_map = dict[str, list[tuple[int, str]]]()
+    playlist_map["Rock"] = find_ids(dataset_map, rock_playlist)
+    playlist_map["Pop"] = find_ids(dataset_map, pop_playlist)
+    playlist_map["Rap"] = find_ids(dataset_map, rap_playlist)
+    playlist_map["Spanish"] = find_ids(dataset_map, spanish_playlist)
+    return playlist_map
 
 
-def get_playlist(playlist_name: str) -> List[Tuple[int, str]]:
-    if playlist_name == "Rock":
-        return rock_playlist
-    elif playlist_name == "Pop":
-        return pop_playlist
-    elif playlist_name == "Rap":
-        return rap_playlist
-    elif playlist_name == "Spanish":
-        return spanish_playlist
-    else:
-        return []
+def find_ids(dataset_map: dict[int, str], playlist: list[str]) -> list[tuple[int, str]]:
+    matching_keys = list[tuple[int, str]]()
+    for song_title in playlist:
+        found_key = None
+        for key, value in dataset_map.items():
+            if song_title in value:
+                found_key = key
+                break
+        if found_key is not None:
+            matching_keys.append((found_key, song_title))
+    return matching_keys
 
 
 rock_playlist = [
-    ("28968", "Bohemian Rhapsody, Queen"),
-    ("11063", "November Rain, Guns N' Roses"),
-    ("8901", "Hotel California, Eagles"),
-    ("27869", "Sweet Child O' Mine, Guns N' Roses"),
-    ("7681", "Smoke On The Water, Deep Purple"),
-    ("13047", "Back In Black, Ac/Dc"),
-    ("29496", "Free Bird, Lynyrd Skynyrd"),
-    ("31312", "Born To Run, Bruce Springsteen"),
-    ("6601", "Dream On, Aerosmith"),
-    ("15585", "Comfortably Numb, Pink Floyd"),
-    ("29494", "Layla, Derek And The Dominos"),
-    ("7878", "More Than A Feeling, Boston"),
-    ("15872", "Rock You Like A Hurricane, Scorpions"),
-    ("26098", "Sweet Home Alabama, Lynyrd Skynyrd"),
-    ("17836", "Baba O'Riley, The Who"),
-    ("13823", "Another Brick In The Wall Part, Pink Floyd"),
-    ("5632", "Purple Haze, Jimi Hendrix"),
-    ("27590", "Go Your Own Way, Fleetwood Mac"),
-    ("16332", "Carry On Wayward Son, Kansas"),
-    ("8816", "Highway To Hell, Ac/Dc"),
+    "Bohemian Rhapsody, Queen",
+    "November Rain, Guns N' Roses",
+    "Hotel California, Eagles",
+    "Sweet Child O' Mine, Guns N' Roses",
+    "Smoke On The Water, Deep Purple",
+    "Back In Black, Ac/Dc",
+    "Free Bird, Lynyrd Skynyrd",
+    "Born To Run, Bruce Springsteen",
+    "Dream On, Aerosmith",
+    "Comfortably Numb, Pink Floyd",
+    "Layla, Derek And The Dominos",
+    "More Than A Feeling, Boston",
+    "Rock You Like A Hurricane, Scorpions",
+    "Sweet Home Alabama, Lynyrd Skynyrd",
+    "Baba O'Riley, The Who",
+    "Another Brick In The Wall Part, Pink Floyd",
+    "Purple Haze, Jimi Hendrix",
+    "Go Your Own Way, Fleetwood Mac",
+    "Carry On Wayward Son, Kansas",
+    "Highway To Hell, Ac/Dc",
 ]
 
 pop_playlist = [
-    ("12733", "Billie Jean, Michael Jackson"),
-    ("4761", "Like A Prayer, Madonna"),
-    ("4683", "I Want It That Way, Backstreet Boys"),
-    ("62104", "Baby One More Time, Britney Spears"),
-    ("196", "Viva La Vida, Coldplay"),
-    ("25830", "Poker Face, Lady Gaga"),
-    ("24093", "Toxic, Britney Spears"),
-    ("29937", "Since U Been Gone, Kelly Clarkson"),
-    ("2623", "Rehab, Amy Winehouse"),
-    ("7255", "Oops!...I Did It Again, Britney Spears"),
-    ("16362", "Hot N Cold, Katy Perry"),
-    ("64889", "Irreplaceable, Beyoncé"),
-    ("25778", "Complicated, Avril Lavigne"),
-    ("19145", "It'S Gonna Be Me, *Nsync"),
-    ("39703", "Cant Get You Out Of My Head, Kylie Minogue"),
-    ("3021", "Mr Brightside, The Killers"),
-    ("6628", "Beautiful Day, U2"),
-    ("26029", "Genie In A Bottle, Christina Aguilera"),
-    ("24132", "Hollaback Girl, Gwen Stefani"),
-    ("25975", "Unwritten, Natasha Bedingfield"),
+    "Billie Jean, Michael Jackson",
+    "Like A Prayer, Madonna",
+    "I Want It That Way, Backstreet Boys",
+    "Baby One More Time, Britney Spears",
+    "Viva La Vida, Coldplay",
+    "Poker Face, Lady Gaga",
+    "Toxic, Britney Spears",
+    "Since U Been Gone, Kelly Clarkson",
+    "Rehab, Amy Winehouse",
+    "Oops!...I Did It Again, Britney Spears",
+    "Hot N Cold, Katy Perry",
+    "Irreplaceable, Beyoncé",
+    "Complicated, Avril Lavigne",
+    "It'S Gonna Be Me, *Nsync",
+    "Cant Get You Out Of My Head, Kylie Minogue",
+    "Mr Brightside, The Killers",
+    "Beautiful Day, U2",
+    "Genie In A Bottle, Christina Aguilera",
+    "Hollaback Girl, Gwen Stefani",
+    "Unwritten, Natasha Bedingfield",
 ]
 
 rap_playlist = [
-    ("15030", "Juicy, The Notorious B.I.G."),
-    ("20077", "Hypnotize, The Notorious B.I.G."),
-    ("19612", "C.R.E.A.M, Wu-Tang Clan"),
-    ("49669", "Gin And Juice, Snoop Dogg"),
-    ("13032", "Fight The Power, Public Enemy"),
-    ("7247", "Ms Jackson, Outkast"),
-    ("49487", "Dear Mama, 2Pac"),
-    ("51765", "Get Ur Freak On, Missy Elliott"),
-    ("49079", "Rosa Parks, Outkast"),
-    ("16795", "It Was A Good Day, Ice Cube"),
-    ("45773", "In Da Club, 50 Cent"),
-    ("62463", "Hot In Herre, Nelly"),
-    ("28422", "My Name Is, Eminem"),
-    ("49356", "The Real Slim Shady, Eminem"),
-    ("7249", "Hey Ya!, Outkast"),
-    ("51900", "Mama Said Knock You Out, Ll Cool J"),
-    ("49479", "Changes, 2Pac"),
-    ("19542", "Ice Ice Baby, Vanilla Ice"),
-    ("16815", "99 Problems, Jay-Z"),
-    ("12834", "U Can'T Touch This, Mc Hammer"),
+    "Juicy, The Notorious B.I.G.",
+    "Hypnotize, The Notorious B.I.G.",
+    "C.R.E.A.M, Wu-Tang Clan",
+    "Gin And Juice, Snoop Dogg",
+    "Fight The Power, Public Enemy",
+    "Ms Jackson, Outkast",
+    "Dear Mama, 2Pac",
+    "Get Ur Freak On, Missy Elliott",
+    "Rosa Parks, Outkast",
+    "It Was A Good Day, Ice Cube",
+    "In Da Club, 50 Cent",
+    "Hot In Herre, Nelly",
+    "My Name Is, Eminem",
+    "The Real Slim Shady, Eminem",
+    "Hey Ya!, Outkast",
+    "Mama Said Knock You Out, Ll Cool J",
+    "Changes, 2Pac",
+    "Ice Ice Baby, Vanilla Ice",
+    "99 Problems, Jay-Z",
+    "U Can'T Touch This, Mc Hammer",
 ]
 
 spanish_playlist = [
-    ("33375", "La Bamba, Ritchie Valens"),
-    ("12855", "Macarena, Los Del Río"),
-    ("14745", "Livin' La Vida Loca, Ricky Martin"),
-    ("73502", "Bailamos, Enrique Iglesias"),
-    ("55643", "Oye Como Va, Santana"),
-    ("34855", "La Camisa Negra, Juanes"),
-    ("62322", "Ciega, Sordomuda, Shakira"),
-    ("62042", "Gasolina, Daddy Yankee"),
-    ("10495", "Corazón Partío, Alejandro Sanz"),
-    ("58037", "Burbujas De Amor, Juan Luis Guerra"),
-    ("59220", "La Flaca, Jarabe De Palo"),
-    ("59216", "Maldito Duende, Héroes Del Silencio"),
-    ("66047", "A Dios Le Pido, Juanes"),
-    ("47002", "Pienso En Ti, Shakira"),
-    ("62821", "Me Voy, Julieta Venegas"),
-    ("45078", "Tenía Tanto Que Darte, Nena Daconte"),
-    ("14156", "Que Te Quería, La Quinta Estación"),
-    ("63725", "El Universo Sobre Mi, Amaral"),
-    ("55679", "Entre Dos Aguas, Paco De Lucía"),
-    ("40014", "Entre Dos Tierras, Héroes Del Silencio"),
+    "La Bamba, Ritchie Valens",
+    "Macarena, Los Del Río",
+    "Livin' La Vida Loca, Ricky Martin",
+    "Bailamos, Enrique Iglesias",
+    "Oye Como Va, Santana",
+    "La Camisa Negra, Juanes",
+    "Ciega, Sordomuda, Shakira",
+    "Gasolina, Daddy Yankee",
+    "Corazón Partío, Alejandro Sanz",
+    "Burbujas De Amor, Juan Luis Guerra",
+    "La Flaca, Jarabe De Palo",
+    "Maldito Duende, Héroes Del Silencio",
+    "A Dios Le Pido, Juanes",
+    "Pienso En Ti, Shakira",
+    "Me Voy, Julieta Venegas",
+    "Tenía Tanto Que Darte, Nena Daconte",
+    "Que Te Quería, La Quinta Estación",
+    "El Universo Sobre Mi, Amaral",
+    "Entre Dos Aguas, Paco De Lucía",
+    "Entre Dos Tierras, Héroes Del Silencio",
 ]
