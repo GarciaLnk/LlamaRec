@@ -1,0 +1,6 @@
+.vscode
+indexdir
+*.lock
+secrets.toml
+.cache
+__pycache__
