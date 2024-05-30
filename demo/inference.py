@@ -8,6 +8,7 @@ from peft.auto import AutoPeftModelForCausalLM
 from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+compute_capability = float(".".join(map(str, torch.cuda.get_device_capability())))
 
 
 def load_dataset_map(dataset_path: str = "dataset_meta.pkl") -> dict[int, str]:
@@ -27,10 +28,15 @@ def load_llm(
 ) -> Tuple[AutoPeftModelForCausalLM, PreTrainedTokenizer | PreTrainedTokenizerFast]:
     tokenizer_name_or_path = llm_path
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path)
+
+    if compute_capability >= 8.0:
+        attn_implementation = "flash_attention_2"
+    else:
+        attn_implementation = "sdpa"
     model = AutoPeftModelForCausalLM.from_pretrained(
         llm_path,
         device_map=device,
-        attn_implementation="flash_attention_2",
+        attn_implementation=attn_implementation,
     )
     model.eval()
     print("Loaded LLM model.")
