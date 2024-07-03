@@ -60,7 +60,7 @@ def rank_candidates(
     prompt: str,
     candidates: list[int],
     top_k: int = 10,
-) -> list[str]:
+) -> list[int]:
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     outputs = model(input_ids=inputs["input_ids"])
     logits = outputs.logits.view(1, -1, outputs.logits.size(-1))
@@ -92,10 +92,12 @@ def rank_candidates(
 
 
 def generate_prompt(
-    query: list[int], candidates: list[int], dataset_map: dict[int, str]
+    query: list[int],
+    candidates: list[int],
+    dataset_map: dict[int, str],
+    instruction: str = "Given user history in chronological order, recommend an item from the candidate pool with its index letter.",
 ) -> str:
     template_file = "template.json"
-    instruction = "Given user history in chronological order, recommend an item from the candidate pool with its index letter."
     input_template = "User history: {}; \n Candidate pool: {}"
 
     q_t = " \n ".join(

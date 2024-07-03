@@ -64,6 +64,7 @@ def remove_from_playlist(index: int):
 def load_resources() -> tuple[
     FileIndex,
     dict[int, str],
+    dict[int, str],
     dict[str, list[tuple[int, str]]],
     ScriptModule,
     AutoPeftModelForCausalLM,
