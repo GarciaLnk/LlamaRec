@@ -2,6 +2,12 @@ import threading
 
 import streamlit as st
 import streamlit.components.v1 as components
+from peft.auto import AutoPeftModelForCausalLM
+from torch.jit import ScriptModule
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+from whoosh.index import FileIndex
+from whoosh.qparser import QueryParser
+
 from index import load_index
 from inference import (
     generate_prompt,
@@ -11,25 +17,26 @@ from inference import (
     rank_candidates,
     retrieve_candidates,
 )
-from peft.auto import AutoPeftModelForCausalLM
 from playlists import load_playlist_map
-from torch.jit import ScriptModule
-from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-from whoosh.index import FileIndex
-from whoosh.qparser import QueryParser
 
 MAX_SEARCH_RESULTS = 20
-MAX_RETRIEVER_CANDIDATES = 20
-MAX_RECOMMENDATIONS = 10
 MAX_PLAYLIST_SIZE = 50
 
 
 def get_recommendations(songs_ids: list[int]):
     with st.session_state.lock_recommender:
-        candidates = retrieve_candidates(retriever, songs_ids, MAX_RETRIEVER_CANDIDATES)
-        llm_prompt = generate_prompt(songs_ids, candidates, dataset_map)
+        candidates = retrieve_candidates(
+            retriever, songs_ids, settings["retriever_top_k"]
+        )
+        llm_prompt = generate_prompt(
+            songs_ids, candidates, dataset_map, settings["instruction"]
+        )
         llm_recommendations = rank_candidates(
-            llm, tokenizer, llm_prompt, candidates, MAX_RECOMMENDATIONS
+            llm,
+            tokenizer,
+            llm_prompt,
+            candidates,
+            settings["ranker_top_k"],
         )
         st.session_state.recommendations = llm_recommendations
         st.session_state.prompt = llm_prompt
@@ -78,6 +85,30 @@ def load_resources() -> tuple[
     return ix, dataset_map, spotify_map, playlist_map, retriever, llm, tokenizer
 
 
+@st.experimental_dialog("Settings")
+def open_settings():
+    instruction = st.text_area("Instruction", value=settings["instruction"])
+    retriever_top_k = st.number_input(
+        "Retriever top k",
+        value=settings["retriever_top_k"],
+        min_value=20,
+        max_value=50,
+    )
+    ranker_top_k = st.number_input(
+        "Ranker top k",
+        value=settings["ranker_top_k"],
+        min_value=10,
+        max_value=20,
+    )
+    if st.button("Save"):
+        st.session_state.settings = {
+            "instruction": instruction,
+            "retriever_top_k": retriever_top_k,
+            "ranker_top_k": ranker_top_k,
+        }
+        st.rerun()
+
+
 st.set_page_config(
     layout="wide",
     page_title="LlamaRec Demo",
@@ -91,7 +122,20 @@ st.session_state.lock_recommender = st.session_state.get(
     "lock_recommender", threading.Lock()
 )
 
+default_settings = {
+    "instruction": "Given user history in chronological order, recommend an item from the candidate pool with its index letter.",
+    "retriever_top_k": 20,
+    "ranker_top_k": 10,
+}
+st.session_state.settings = st.session_state.get("settings", default_settings)
+settings = st.session_state.settings
+
 ix, dataset_map, spotify_map, playlist_map, retriever, llm, tokenizer = load_resources()
+
+_, settings_col = st.columns([10, 1])
+with settings_col:
+    if st.button(":gear:"):
+        open_settings()
 
 st.title("LlamaRec Demo")
 
