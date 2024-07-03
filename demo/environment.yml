@@ -213,7 +213,6 @@ dependencies:
   - sleef=3.5.1=h9b69904_2
   - smmap=5.0.0=pyhd8ed1ab_0
   - snappy=1.2.0=hdb0a2a9_1
-  - spotipy=2.23.0=pyhd8ed1ab_0
   - stack_data=0.6.2=pyhd8ed1ab_0
   - streamlit=1.35.0=pyhd8ed1ab_0
   - sympy=1.12=pypyh9d50eac_103

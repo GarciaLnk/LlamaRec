@@ -64,18 +64,20 @@ class MusicDataset(AbstractDataset):
             dataset_path.parent.mkdir(parents=True)
         self.maybe_download_raw_dataset()
         df = self.load_ratings_df()
-        meta_raw = self.load_meta_dict()
+        meta_raw, spotify_ids = self.load_meta_dict()
         df = df[df["sid"].isin(meta_raw)]  # filter items without meta info
         df = self.sample_data(df)
         df = self.filter_triplets(df)
         df, umap, smap = self.densify_index(df)
         train, val, test = self.split_df(df, len(umap))
         meta = {smap[k]: v for k, v in meta_raw.items() if k in smap}
+        spotify_meta = {smap[k]: spotify_ids[k] for k in spotify_ids if k in smap}
         dataset = {
             "train": train,
             "val": val,
             "test": test,
             "meta": meta,
+            "spotify_meta": spotify_meta,
             "umap": umap,
             "smap": smap,
         }
@@ -94,9 +96,12 @@ class MusicDataset(AbstractDataset):
         file_path = folder_path.joinpath("lastfm1k.item")
         df = pd.read_csv(file_path)
         meta_dict = {}
+        spotify_ids = {}
         for row in df.itertuples():
             track = str(row[1]).strip()
             artist = row[2]
+            spotify_id = row[3]
 
             meta_dict[row[-1]] = track + ", " + artist
-        return meta_dict
+            spotify_ids[row[-1]] = spotify_id
+        return meta_dict, spotify_ids

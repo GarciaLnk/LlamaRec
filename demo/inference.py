@@ -10,10 +10,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 compute_capability = float(".".join(map(str, torch.cuda.get_device_capability())))
 
 
-def load_dataset_map(dataset_path: str = "dataset_meta.pkl") -> dict[int, str]:
+def load_dataset_map(
+    dataset_path: str = "dataset_meta.pkl",
+) -> tuple[dict[int, str], dict[int, str]]:
     with open(dataset_path, "rb") as f:
         dataset_map = pickle.load(f)
-    return dataset_map
+    return dataset_map["meta"], dataset_map["spotify_meta"]
 
 
 def load_retriever(model_path: str = "retriever.pth") -> torch.jit.ScriptModule:
@@ -57,7 +59,6 @@ def rank_candidates(
     tokenizer,
     prompt: str,
     candidates: list[int],
-    dataset_map: dict[int, str],
     top_k: int = 10,
 ) -> list[str]:
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
@@ -84,11 +85,10 @@ def rank_candidates(
             curr_top_k += top_k
 
     candidates = [candidates[ord(token) - ord("A")] for token in ranked_candidates]
-    result = [dataset_map[candidate] for candidate in candidates]
 
     if device.type == "cuda":
         torch.cuda.empty_cache()
-    return result
+    return candidates
 
 
 def generate_prompt(

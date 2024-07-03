@@ -21,8 +21,12 @@ def main(args):
     dataset = dataset_factory(args)
     dataset_dict = dataset.load_dataset()
     if not os.path.exists("demo/dataset_meta.pkl"):
+        combined_meta = {
+            "meta": dataset_dict["meta"],
+            "spotify_meta": dataset_dict["spotify_meta"],
+        }
         with open("demo/dataset_meta.pkl", "wb") as f:
-            pickle.dump(dataset_dict["meta"], f)
+            pickle.dump(combined_meta, f)
 
     create_index("demo/dataset_meta.pkl", "demo/indexdir")
 
@@ -94,7 +98,6 @@ def main(args):
     print("LoRA adapter saved to demo directory.")
 
     print("Demo setup complete.")
-    print("Remember to setup your Spotify credentials at demo/.streamlit/secrets.toml")
 
 
 if __name__ == "__main__":

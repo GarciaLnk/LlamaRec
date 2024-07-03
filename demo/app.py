@@ -1,6 +1,5 @@
 import threading
 
-import spotipy
 import streamlit as st
 import streamlit.components.v1 as components
 from index import load_index
@@ -14,7 +13,6 @@ from inference import (
 )
 from peft.auto import AutoPeftModelForCausalLM
 from playlists import load_playlist_map
-from spotipy.oauth2 import SpotifyClientCredentials
 from torch.jit import ScriptModule
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from whoosh.index import FileIndex
@@ -31,7 +29,7 @@ def get_recommendations(songs_ids: list[int]):
         candidates = retrieve_candidates(retriever, songs_ids, MAX_RETRIEVER_CANDIDATES)
         llm_prompt = generate_prompt(songs_ids, candidates, dataset_map)
         llm_recommendations = rank_candidates(
-            llm, tokenizer, llm_prompt, candidates, dataset_map, MAX_RECOMMENDATIONS
+            llm, tokenizer, llm_prompt, candidates, MAX_RECOMMENDATIONS
         )
         st.session_state.recommendations = llm_recommendations
         st.session_state.prompt = llm_prompt
@@ -62,13 +60,6 @@ def remove_from_playlist(index: int):
         st.session_state.playlist_songs.pop(index)
 
 
-def lookup_spotify_uri(song_name: str) -> str:
-    results = sp.search(q=f"track:{song_name}", limit=1)
-    if results and results["tracks"]["items"]:
-        return results["tracks"]["items"][0]["uri"]
-    return ""
-
-
 @st.cache_resource
 def load_resources() -> tuple[
     FileIndex,
@@ -79,22 +70,11 @@ def load_resources() -> tuple[
     PreTrainedTokenizer | PreTrainedTokenizerFast,
 ]:
     ix = load_index()
-    dataset_map = load_dataset_map()
+    dataset_map, spotify_map = load_dataset_map()
     playlist_map = load_playlist_map(dataset_map)
     retriever = load_retriever()
     llm, tokenizer = load_llm()
-    return ix, dataset_map, playlist_map, retriever, llm, tokenizer
-
-
-@st.cache_resource
-def auth_spotify() -> spotipy.Spotify:
-    sp = spotipy.Spotify(
-        auth_manager=SpotifyClientCredentials(
-            client_id=st.secrets["SPOTIPY_CLIENT_ID"],
-            client_secret=st.secrets["SPOTIPY_CLIENT_SECRET"],
-        )
-    )
-    return sp
+    return ix, dataset_map, spotify_map, playlist_map, retriever, llm, tokenizer
 
 
 st.set_page_config(
@@ -110,8 +90,7 @@ st.session_state.lock_recommender = st.session_state.get(
     "lock_recommender", threading.Lock()
 )
 
-ix, dataset_map, playlist_map, retriever, llm, tokenizer = load_resources()
-sp = auth_spotify()
+ix, dataset_map, spotify_map, playlist_map, retriever, llm, tokenizer = load_resources()
 
 st.title("LlamaRec Demo")
 
@@ -204,7 +183,7 @@ with col_recsys:
                 with st.popover("View prompt", use_container_width=True):
                     st.markdown(prompt.replace("\n", "\n\n"))
                 for i, rec in enumerate(recommendations):
-                    uri = lookup_spotify_uri(rec)
+                    uri = "spotify:track:" + spotify_map[rec]
                     if uri:
                         components.html(
                             f"""
@@ -227,6 +206,6 @@ with col_recsys:
                             scrolling=False,
                         )
                     else:
-                        st.write(f"{rec}")
+                        st.write(f"{dataset_map[rec]}")
     else:
         st.write("Add songs to the playlist to get recommendations.")
