@@ -1,6 +1,5 @@
 import json
 import pickle
-import re
 
 import torch
 from peft.auto import AutoPeftModelForCausalLM
@@ -59,36 +58,22 @@ def rank_candidates(
     tokenizer,
     prompt: str,
     candidates: list[int],
+    verbalizer,
     top_k: int = 10,
 ) -> list[int]:
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     outputs = model(input_ids=inputs["input_ids"])
-    logits = outputs.logits.view(1, -1, outputs.logits.size(-1))
 
-    curr_top_k = min(top_k, len(candidates))
-    ranked_candidates = []
-    seen_candidates = set()
-    pattern = re.compile(r"^[A-Z]$")
-    while len(ranked_candidates) < top_k:
-        top_tokens = torch.topk(logits, curr_top_k, dim=-1)
-        decoded_tokens = tokenizer.batch_decode(
-            top_tokens.indices[0, -1, :], skip_special_tokens=True
-        )
-        for token in decoded_tokens:
-            token = token.strip()
-            if token and pattern.match(token) and token not in seen_candidates:
-                seen_candidates.add(token)
-                ranked_candidates.append(token)
-                if len(ranked_candidates) == top_k:
-                    break
-        if len(ranked_candidates) < top_k:
-            curr_top_k += top_k
+    logits = outputs.logits[:, -1].to("cpu")
+    scores = verbalizer.process_logits(logits)
 
-    candidates = [candidates[ord(token) - ord("A")] for token in ranked_candidates]
+    top_candidates = [
+        candidates[i] for i in torch.topk(scores, top_k).indices.squeeze().tolist()
+    ]
 
     if device.type == "cuda":
         torch.cuda.empty_cache()
-    return candidates
+    return top_candidates
 
 
 def generate_prompt(

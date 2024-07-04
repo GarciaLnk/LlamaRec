@@ -18,6 +18,7 @@ from inference import (
     retrieve_candidates,
 )
 from playlists import load_playlist_map
+from verb import ManualVerbalizer
 
 MAX_SEARCH_RESULTS = 20
 MAX_PLAYLIST_SIZE = 50
@@ -25,18 +26,27 @@ MAX_PLAYLIST_SIZE = 50
 
 def get_recommendations(songs_ids: list[int]):
     with st.session_state.lock_recommender:
-        candidates = retrieve_candidates(
-            retriever, songs_ids, settings["retriever_top_k"]
-        )
+        retriever_top_k = settings["retriever_top_k"]
+        ranker_top_k = settings["ranker_top_k"]
+
+        candidates = retrieve_candidates(retriever, songs_ids, retriever_top_k)
         llm_prompt = generate_prompt(
             songs_ids, candidates, dataset_map, settings["instruction"]
+        )
+        verbalizer = ManualVerbalizer(
+            tokenizer=tokenizer,
+            prefix="",
+            post_log_softmax=False,
+            classes=[str(i) for i in range(retriever_top_k)],
+            label_words={str(i): chr(ord("A") + i) for i in range(retriever_top_k)},
         )
         llm_recommendations = rank_candidates(
             llm,
             tokenizer,
             llm_prompt,
             candidates,
-            settings["ranker_top_k"],
+            verbalizer,
+            ranker_top_k,
         )
         st.session_state.recommendations = llm_recommendations
         st.session_state.prompt = llm_prompt
