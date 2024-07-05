@@ -225,7 +225,7 @@ parser.add_argument(
     "--llm",
     type=str,
     default=None,
-    choices=["llama2", "llama3", "phi3", "gemma", "mistral"],
+    choices=["llama2", "llama3", "phi3", "gemma", "mistral", "gemma2", "qwen2"],
 )
 parser.add_argument("--llm_enable_unsloth", action="store_true")
 parser.add_argument("--llm_base_model", type=str, default="meta-llama/Llama-2-7b-hf")
