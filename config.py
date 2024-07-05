@@ -47,6 +47,12 @@ def set_template(args):
         case "mistral":
             args.llm_base_model = "mistralai/Mistral-7B-v0.3"
             args.llm_base_tokenizer = "mistralai/Mistral-7B-v0.3"
+        case "gemma2":
+            args.llm_base_model = "google/gemma-2-9b"
+            args.llm_base_tokenizer = "google/gemma-2-9b"
+        case "qwen2":
+            args.llm_base_model = "Qwen/Qwen2-0.5B"
+            args.llm_base_tokenizer = "Qwen/Qwen2-0.5B"
 
     if args.bert_max_len is None:
         if args.dataset_code == "ml-100k":

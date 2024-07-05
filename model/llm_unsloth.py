@@ -39,6 +39,18 @@ from unsloth.models.gemma import (
     GemmaFixedRotaryEmbedding,
     GemmaModel_fast_forward_inference,
 )
+from unsloth.models.gemma2 import (
+    FastGemma2Model,
+    Gemma2Attention,
+    Gemma2Attention_fast_forward,
+    Gemma2DecoderLayer,
+    Gemma2DecoderLayer_fast_forward,
+    Gemma2FlashAttention2,
+    Gemma2ForCausalLM,
+    Gemma2Model,
+    Gemma2Model_fast_forward_inference,
+    Gemma2SdpaAttention,
+)
 from unsloth.models.llama import (
     FastLlamaModel,
     LlamaAttention_fast_forward,
@@ -48,10 +60,19 @@ from unsloth.models.llama import (
     LlamaModel_fast_forward_inference,
     LlamaRotaryEmbedding,
     PeftModelForCausalLM_fast_forward,
+    fix_prepare_inputs_for_generation,
 )
-from unsloth.models.loader import SUPPORTS_GEMMA, _get_model_name
+from unsloth.models.loader import SUPPORTS_GEMMA, SUPPORTS_GEMMA2, _get_model_name
 from unsloth.models.mistral import FastMistralModel, MistralAttention_fast_forward
-from unsloth.models.qwen2 import FastQwen2Model
+from unsloth.models.qwen2 import (
+    FastQwen2Model,
+    Qwen2Attention,
+    Qwen2DecoderLayer,
+    Qwen2FlashAttention2,
+    Qwen2ForCausalLM,
+    Qwen2Model,
+    Qwen2SdpaAttention,
+)
 
 
 class FastLanguageModelPatched(FastLanguageModel):
@@ -117,8 +138,17 @@ class FastLanguageModelPatched(FastLanguageModel):
                     f"to obtain the latest transformers build, then restart this session."
                 )
             dispatch_model = FastGemmaModelPatched
+        elif model_type == "gemma2":
+            if not SUPPORTS_GEMMA2:
+                raise RuntimeError(
+                    f"Unsloth: Your transformers version of {transformers_version} does not support Gemma2.\n"
+                    f"The minimum required version is 4.43.\n"
+                    f'Try `pip install --upgrade "transformers>=4.43"`\n'
+                    f"to obtain the latest transformers build, then restart this session."
+                )
+            dispatch_model = FastGemma2ModelPatched
         elif model_type == "qwen2":
-            dispatch_model = FastQwen2Model
+            dispatch_model = FastQwen2ModelPatched
         else:
             raise NotImplementedError(
                 f"Unsloth: {model_name} not supported yet!\n"
@@ -277,12 +307,13 @@ def CausalLM_fast_forward_patched(fast_forward_inference):
         logits = logits.to(self.config.torch_dtype)
 
         loss = None
+        logit_softcapping = getattr(self.config, "final_logit_softcapping", 0)
         if self.model.training and labels is not None:
             shift_logits = logits
             if not hasattr(self, "extra_ignored_labels"):
                 # Fixes https://github.com/unslothai/unsloth/issues/10
                 self.extra_ignored_labels = torch.full(
-                    (self.max_seq_length, 1), -100, device="cuda"
+                    (self.max_seq_length, 1), -100, device="cuda:0"
                 )
             pass
 
@@ -292,7 +323,12 @@ def CausalLM_fast_forward_patched(fast_forward_inference):
             loss = fast_cross_entropy_loss(
                 logits=shift_logits,
                 labels=shift_labels,
+                logit_softcapping=logit_softcapping,
             )
+        elif logit_softcapping != 0:
+            logits *= 1.0 / logit_softcapping
+            torch.tanh(logits, out=logits)
+            logits *= logit_softcapping
         elif labels is not None:
             loss = torch.tensor(-1.0)  # loss cannot be directly computed in inference
         pass
@@ -501,7 +537,6 @@ class FastMistralModelPatched(FastMistralModel):
 
 
 class FastGemmaModelPatched(FastGemmaModel):
-
     @staticmethod
     def pre_patch():
         GemmaAttention.forward = LlamaAttention_fast_forward
@@ -522,6 +557,65 @@ class FastGemmaModelPatched(FastGemmaModel):
 
         transformers.models.gemma.modeling_gemma.GemmaRotaryEmbedding = (
             GemmaFixedRotaryEmbedding
+        )
+        return
+
+    pass
+
+
+class FastGemma2ModelPatched(FastGemma2Model):
+    @staticmethod
+    def pre_patch():
+        Gemma2Attention.forward = Gemma2Attention_fast_forward
+        Gemma2SdpaAttention.forward = Gemma2Attention_fast_forward
+        Gemma2FlashAttention2.forward = Gemma2Attention_fast_forward
+        Gemma2DecoderLayer.forward = Gemma2DecoderLayer_fast_forward
+        Gemma2Model.forward = LlamaModel_fast_forward
+        Gemma2ForCausalLM.forward = CausalLM_fast_forward_patched(
+            Gemma2Model_fast_forward_inference
+        )
+        PeftModelForCausalLM.forward = PeftModelForCausalLM_fast_forward
+        fix_prepare_inputs_for_generation(Gemma2ForCausalLM)
+
+        # Solves https://github.com/unslothai/unsloth/issues/168
+        # Static KV Cache was introduced in 4.38.0, causing training to be much slower.
+        # Inferene can now be CUDAGraphed, but we shall retain the old rotary embeddings.
+        # https://github.com/huggingface/transformers/pull/27931
+        # https://github.com/huggingface/transformers/blob/v4.37.2/src/transformers/models/llama/modeling_llama.py
+        import transformers.models.gemma2.modeling_gemma2
+
+        transformers.models.gemma2.modeling_gemma2.Gemma2RotaryEmbedding = (
+            GemmaFixedRotaryEmbedding
+        )
+        return
+
+    pass
+
+
+class FastQwen2ModelPatched(FastQwen2Model):
+
+    @staticmethod
+    def pre_patch():
+        Qwen2Attention.forward = LlamaAttention_fast_forward
+        Qwen2SdpaAttention.forward = LlamaAttention_fast_forward
+        Qwen2FlashAttention2.forward = LlamaAttention_fast_forward
+        Qwen2DecoderLayer.forward = LlamaDecoderLayer_fast_forward
+        Qwen2Model.forward = LlamaModel_fast_forward
+        Qwen2ForCausalLM.forward = CausalLM_fast_forward_patched(
+            LlamaModel_fast_forward_inference
+        )
+        PeftModelForCausalLM.forward = PeftModelForCausalLM_fast_forward
+        fix_prepare_inputs_for_generation(Qwen2ForCausalLM)
+
+        # Solves https://github.com/unslothai/unsloth/issues/168
+        # Static KV Cache was introduced in 4.38.0, causing training to be much slower.
+        # Inferene can now be CUDAGraphed, but we shall retain the old rotary embeddings.
+        # https://github.com/huggingface/transformers/pull/27931
+        # https://github.com/huggingface/transformers/blob/v4.37.2/src/transformers/models/llama/modeling_llama.py
+        import transformers.models.qwen2.modeling_qwen2
+
+        transformers.models.qwen2.modeling_qwen2.Qwen2RotaryEmbedding = (
+            LlamaRotaryEmbedding
         )
         return
 
