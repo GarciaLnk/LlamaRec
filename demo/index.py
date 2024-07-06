@@ -27,14 +27,15 @@ def create_index(dataset_path: str, index_dir: str) -> FileIndex:
         return open_dir(index_dir)
 
     with open(dataset_path, "rb") as f:
-        dataset = pickle.load(f)
+        dataset_map = pickle.load(f)
+    dataset_map = dataset_map["meta"]
 
     print("Creating index...")
     schema = Schema(id=ID(stored=True), song=TEXT(stored=True))
     ix = create_in(index_dir, schema)
 
     writer = ix.writer()
-    for key, song in dataset.items():
+    for key, song in dataset_map.items():
         writer.add_document(id=str(key), song=song)
     writer.commit()
 
